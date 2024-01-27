@@ -43,7 +43,7 @@ module Thrift
 
     def write_struct_end; nil; end
 
-    def write_field_begin(name : String, type : MessageTypes, id : Int16)
+    def write_field_begin(name : String, type : Types, id : Int16)
       raise NotImplementedError.new ""
     end
 

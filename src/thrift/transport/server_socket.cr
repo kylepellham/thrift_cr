@@ -29,7 +29,7 @@ module Thrift
     def accept
       if handle = @handle
         sock = handle.accept
-        trans = SocketTransport.new
+        trans = Socket.new
         trans.handle = sock
         trans
       end

@@ -4,9 +4,8 @@ require "./types.cr"
 require "./exceptions.cr"
 
 module Thrift
-  module Processor
+  class Processor
 
-    @handler : Nil
     def initialize(handler, logger = nil)
       @handler = handler
       if logger.nil?
@@ -16,9 +15,6 @@ module Thrift
       end
     end
 
-    def responds?(method_check)
-      false
-    end
 
     def process(iprot : BaseProtocol, oprot : BaseProtocol)
       name, type, seqid = iprot.read_message_begin
@@ -62,28 +58,27 @@ module Thrift
       oprot.trans.flush
     end
 
-    macro included
-      {% verbatim do %}
-        macro finished
+    macro finished
+      def self.methods
+        return \{{@type.methods.map &.name.stringify}}
+      end
 
-          def self.methods(method_name)
-            return {{@type.methods.select(&.stringify.startswith("process_")).map &.name.stringify}}
-          end
+      def responds?(method_check)
+        \{{@type.id}}.methods.includes?(method_check)
+      end
 
-          def send(method : String, seqid : Int32, iprot : Thrift::BaseProtocol, oprot : Thrift::BaseProtocol)
-            case method
-            {% for method in @type.methods %}
-              {% if method.name.stringify[0.."process_".size] == "process_" %}
-            when "{{method.name.id}}"
-              @handler.{{method.name.stringify.l_strip("process_").id}}(seqid, iprot, oprot)
-              {% end %}
-            {% end %}
-            else
-              raise ArgumentError.new "Method #{method} Not found"
-            end
-          end
+      def send(method : String, seqid : Int32, iprot : Thrift::BaseProtocol, oprot : Thrift::BaseProtocol)
+        case method
+        {% for method in @type.methods %}
+          {% if method.name.stringify[0.."process_".size] == "process_" %}
+        when "{{method.name.id}}"
+          @handler.{{method.name.stringify.l_strip("process_").id}}(seqid, iprot, oprot)
+          {% end %}
+        {% end %}
+        else
+          raise ArgumentError.new "Method #{method} Not found"
         end
-      {% end %}
+      end
     end
   end
 end

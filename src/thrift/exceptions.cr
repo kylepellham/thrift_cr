@@ -39,15 +39,15 @@ module Thrift
       iprot.read_struct_end
     end
 
-    def write(oprot)
+    def write(oprot : BaseProtocol)
       oprot.write_struct_begin("Thrift::ApplicationException")
       if message = @message
-        oprot.write_field_begin("message", Types::STRING, 1)
+        oprot.write_field_begin("message", Types::STRING, 1_i16)
         oprot.write_string(message)
         oprot.write_field_end
       end
       if type = @type
-        oprot.write_field_begin("type", Types::I32, 2)
+        oprot.write_field_begin("type", Types::I32, 2_i16)
         oprot.write_i32(type)
         oprot.write_field_end
       end
