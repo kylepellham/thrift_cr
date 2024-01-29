@@ -49,8 +49,7 @@ module Thrift
     end
 
     def receive_message(type : ResultKlass.class) : ResultKlass forall ResultKlass
-      result = ResultKlass.new
-      result.read(@iprot)
+      result = ResultKlass.read(@iprot)
       @iprot.read_message_end
       result
     end

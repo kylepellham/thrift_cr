@@ -1,5 +1,5 @@
 require "./base_transport.cr"
-require "../byte_helpers.cr"
+require "../helpers.cr"
 module Thrift
   class BufferedTransport < BaseTransport
     DEFAULT_BUFFER = 4096
@@ -78,7 +78,7 @@ module Thrift
     end
 
     def write(buf)
-      @wbuf = @wbuf.join buf
+      @wbuf = @wbuf.join_with buf
     end
 
     def flush

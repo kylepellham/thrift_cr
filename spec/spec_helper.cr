@@ -1,2 +1,2 @@
 require "spec"
-require "../src/thrift"
+require "../src/thrift.cr"

@@ -1,4 +1,4 @@
-require "../byte_helpers.cr"
+require "../helpers.cr"
 
 module Thrift
   class TransportException < Exception

@@ -39,22 +39,22 @@ module Thrift
     end
 
     def write_field_stop
-      write_byte(Thrift::Types::STOP.to_u8)
+      write_byte(Thrift::Types::Stop.to_u8)
     end
 
     def write_map_begin(ktype, vtype, size)
-      write_byte(ktype)
-      write_byte(vtype)
+      write_byte(ktype.to_u8)
+      write_byte(vtype.to_u8)
       write_i32(size)
     end
 
     def write_list_begin(etype, size)
-      write_byte(etype)
+      write_byte(etype.to_u8)
       write_i32(size)
     end
 
     def write_set_begin(etype, size)
-      write_byte(etype)
+      write_byte(etype.to_u8)
       write_i32(size)
     end
 
@@ -69,15 +69,12 @@ module Thrift
     end
 
     def write_i16(i16 : Int16)
-      puts i16
       raw = Bytes.new(2, 0)
       IO::ByteFormat::BigEndian.encode(i16, raw)
-      p! raw
       trans.write(raw)
     end
 
     def write_i32(i32 : Int32)
-      puts i32
       raw = Bytes.new(4, 0)
       IO::ByteFormat::BigEndian.encode(i32, raw)
       trans.write(raw)
@@ -100,10 +97,10 @@ module Thrift
       write_binary(buf)
     end
 
-    def write_binary(buf)
+    def write_binary(buf : Bytes)
       write_i32(buf.size)
       trans.write(buf)
-    end
+    end 
 
     def read_message_begin : Tuple(String, UInt8, Int32)
       version = read_i32
@@ -130,8 +127,8 @@ module Thrift
     def read_struct_begin; nil; end
 
     def read_field_begin
-      type = read_byte
-      if (type == Types::STOP)
+      type = Types.from_value(read_byte)
+      if (type == Types::Stop)
         [nil, type, 0]
       else
         id = read_i16
@@ -179,8 +176,6 @@ module Thrift
     def read_i32 : Int32
       trans.read_into_buffer(@rbuf, 4)
       val = IO::ByteFormat::BigEndian.decode(Int32, @rbuf)
-      p! val
-      val
     end
 
     def read_i64 : Int64
@@ -195,7 +190,7 @@ module Thrift
 
     def read_string : String
       buffer = read_binary
-      String.new(buffer)
+      String.new(buffer, "utf-8")
     end
 
     def read_binary : Bytes

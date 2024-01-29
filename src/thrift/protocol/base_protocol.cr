@@ -146,7 +146,7 @@ module Thrift
 
     def read_list_end; nil; end
 
-    def read_set_begin : Tuple(Uint8, Int32)
+    def read_set_begin : Tuple(UInt8, Int32)
       raise NotImplementedError.new ""
     end
 
