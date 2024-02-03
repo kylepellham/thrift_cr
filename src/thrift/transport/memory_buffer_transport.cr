@@ -28,8 +28,7 @@ module Thrift
     @buf : Bytes
     @index : Int32
 
-    def initialize(buffer : Bytes? = nil)
-      @buf = buffer ? buffer : Bytes.empty
+    def initialize(@buf = Bytes.empty)
       @index = 0
     end
 

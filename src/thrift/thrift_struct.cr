@@ -20,7 +20,8 @@ module Thrift
         oprot.write_struct_begin(\{{@type.stringify}})
         \{% for var in @type.instance_vars %}
           oprot.write_field_begin(\{{var.name.stringify}}, @\{{var}}.thrift_type, \{{var.annotation(Property)[:id]}}.to_i16)
-          @\{{var}}.write(oprot)         
+          @\{{var}}.write(oprot)
+          oprot.write_field_end()
         \{% end %}
         oprot.write_field_stop
         oprot.write_struct_end
@@ -33,15 +34,10 @@ module Thrift
 
     private macro generate_reader
       def self.read(iprot)
-        \{% begin %}
-        \{% for var in @type.instance_vars %}
-          \{{var}}_instance = nil
-        \{% end %}
-        \{% end %}
+        recieved_struct = \{{@type.id}}.new()
         iprot.read_struct_begin
         loop do
           name, type, fid = iprot.read_field_begin
-          puts type
           break if type == ::Thrift::Types::Stop
           next if type == ::Thrift::Types::Void
           \{% begin %}
@@ -53,7 +49,7 @@ module Thrift
               \{{raise "Union too large for thrift struct. Nilable types only"}}
             \{% end %}
             when \{{var.annotation(Property)[:id]}}
-              \{{var}}_instance = \{{type}}.read(iprot)
+              \{{@type}}.\{{var}} = \{{type}}.read(iprot)
           \{% end %}
           else
             raise "Not a Possible field #{fid}"
@@ -62,17 +58,8 @@ module Thrift
           iprot.read_field_end
         end
         iprot.read_struct_end
-        \{% begin %}
-        return \{{@type}}.new(
-          \{% for var in @type.instance_vars %}
-            \{% if var.type.nilable? %}
-              \{{var}}: \{{var}}_instance,
-            \{% else %}
-              \{{var}}: \{{var}}_instance.not_nil!,
-            \{% end %}
-          \{% end %}
-        )
-        \{% end %}
+        recieved_struct.validate
+        return recieved_struct
       end
     end
 
