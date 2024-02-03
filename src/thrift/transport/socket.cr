@@ -4,7 +4,8 @@ require "./base_transport.cr"
 module Thrift
   class Socket < BaseTransport
     @handle : TCPSocket?
-    def initialize(@host="localhost", @port=9090, @timeout : Int32? = nil)
+
+    def initialize(@host = "localhost", @port = 9090, @timeout : Int32? = nil)
       @desc = "#{@host}:#{@port}"
     end
 
@@ -65,9 +66,9 @@ module Thrift
       read = 0
       begin
         if handle = @handle
-          p! handle
+          # p! handle
           read, _ = handle.receive(buf)
-          p! buf
+          # p! buf
         end
         if (read < 1)
           raise TransportException.new(TransportException::UNKNOWN, "Socket: Could not read #{sz} bytes from #{@desc}")
@@ -78,7 +79,7 @@ module Thrift
       rescue ex : Exception
         @handle.try(&.close)
         @handle = nil
-        pp "failed"
+        # pp "failed"
         raise TransportException.new(TransportException::NOT_OPEN, ex.message)
       end
       buf

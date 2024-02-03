@@ -4,7 +4,6 @@ require "./socket.cr"
 
 module Thrift
   class ServerSocketTransport < BaseServerTransport
-
     @handle : TCPServer?
     @host : String?
     @port : Int32

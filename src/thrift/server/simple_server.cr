@@ -3,7 +3,7 @@ require "../transport/base_transport.cr"
 require "../protocol/base_protocol.cr"
 
 module Thrift
-  #Crystal Event manager makes all network reads non blocking
+  # Crystal Event manager makes all network reads non blocking
   class SimpleServer < BaseServer
     def serve
       begin
@@ -11,18 +11,15 @@ module Thrift
         loop do
           client = @server_transport.accept
           if client
-            spawn do
-              trans = @transport_factory.get_transport(client)
-              prot = @protocol_factory.get_protocol(trans)
-              begin
-                loop do
-                  @processor.process(prot, prot)
-                  Fiber.yield
-                end
-              rescue Thrift::TransportException | Thrift::ProtocolException
-              ensure
-                trans.close
+            trans = @transport_factory.get_transport(client)
+            prot = @protocol_factory.get_protocol(trans)
+            begin
+              loop do
+                @processor.process(prot, prot)
               end
+            rescue Thrift::TransportException | Thrift::ProtocolException
+            ensure
+              trans.close
             end
           else
             Fiber.yield
@@ -32,7 +29,7 @@ module Thrift
         @server_transport.close
       end
     end
-    
+
     def to_s
       "simple(#{super.to_s})"
     end

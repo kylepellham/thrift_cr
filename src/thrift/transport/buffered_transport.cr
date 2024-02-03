@@ -1,5 +1,6 @@
 require "./base_transport.cr"
 require "../helpers.cr"
+
 module Thrift
   class BufferedTransport < BaseTransport
     DEFAULT_BUFFER = 4096
@@ -50,12 +51,11 @@ module Thrift
     end
 
     def read_byte
-
       if @index >= @rbuf.size
         @transport.read(DEFAULT_BUFFER)
         @index = 0
       end
-    
+
       @index += 1
       return @rbuf[@index - 1]
     end
@@ -65,7 +65,7 @@ module Thrift
       while i < size
         if @index >= @rbuf.size
           @rbuf = @transport.read(DEFAULT_BUFFER)
-          p! @rbuf
+          # p! @rbuf
           @index = 0
         end
 
@@ -98,7 +98,7 @@ module Thrift
     def get_transport(transport)
       return BufferedTransport.new(transport)
     end
-    
+
     def to_s
       "buffered"
     end

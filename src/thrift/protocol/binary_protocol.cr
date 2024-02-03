@@ -3,12 +3,12 @@ require "./base_protocol.cr"
 module Thrift
   class BinaryProtocol < BaseProtocol
     VERSION_MASK = 0xffff0000_u32
-    VERSION_1 = 0x80010000_u32
-    TYPE_MASK = 0x000000ff_u32
+    VERSION_1    = 0x80010000_u32
+    TYPE_MASK    = 0x000000ff_u32
 
     getter :strict_read, :strict_write
 
-    def initialize(trans, @strict_read=true, @strict_write=true)
+    def initialize(trans, @strict_read = true, @strict_write = true)
       super(trans)
       # Pre-allocated read buffer for fixed-size read methods. Needs to be at least 8 bytes long for
       # read_i64() and read_double().
@@ -16,10 +16,10 @@ module Thrift
     end
 
     def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
-      # this is necessary because we added (needed) bounds checking to 
+      # this is necessary because we added (needed) bounds checking to
       # write_i32, and 0x80010000 is too big for that.
       if strict_write
-        p! (0xffff_u16 & (VERSION_1 >> 16)).unsafe_as(Int16)
+        # p! (0xffff_u16 & (VERSION_1 >> 16)).unsafe_as(Int16)
         write_i16((0xffff_u16 & (VERSION_1 >> 16)).unsafe_as(Int16))
         write_i16(type.to_i16)
         write_string(name)
@@ -31,7 +31,9 @@ module Thrift
       end
     end
 
-    def write_struct_begin(name); nil; end
+    def write_struct_begin(name)
+      nil
+    end
 
     def write_field_begin(name : String, type : Types, id : Int16)
       write_byte(type.to_u8)
@@ -59,7 +61,7 @@ module Thrift
     end
 
     def write_bool(bool)
-      write_byte(bool ? 1 : 0)
+      write_byte(bool ? 1_u8 : 0_u8)
     end
 
     def write_byte(byte : UInt8)
@@ -89,7 +91,7 @@ module Thrift
     def write_double(dub : Float64)
       raw = Bytes.new(8, 0)
       IO::ByteFormat::BigEndian.encode(dub, raw)
-      trans.write(raw)     
+      trans.write(raw)
     end
 
     def write_string(str : String)
@@ -100,7 +102,7 @@ module Thrift
     def write_binary(buf : Bytes)
       write_i32(buf.size)
       trans.write(buf)
-    end 
+    end
 
     def read_message_begin : Tuple(String, UInt8, Int32)
       version = read_i32
@@ -124,7 +126,9 @@ module Thrift
       end
     end
 
-    def read_struct_begin; nil; end
+    def read_struct_begin
+      nil
+    end
 
     def read_field_begin
       type = Types.from_value(read_byte)
@@ -197,7 +201,7 @@ module Thrift
       size = read_i32
       trans.read_all(size)
     end
-    
+
     def to_s
       "binary(#{super.to_s})"
     end
@@ -207,7 +211,7 @@ module Thrift
     def get_protocol(trans)
       return Thrift::BinaryProtocol.new(trans)
     end
-    
+
     def to_s
       "binary"
     end

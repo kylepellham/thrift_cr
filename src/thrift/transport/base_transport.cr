@@ -2,22 +2,22 @@ require "../helpers.cr"
 
 module Thrift
   class TransportException < Exception
-    UNKNOWN = 0
-    NOT_OPEN = 1
+    UNKNOWN      = 0
+    NOT_OPEN     = 1
     ALREADY_OPEN = 2
-    TIMED_OUT = 3
-    END_OF_FILE = 4
+    TIMED_OUT    = 3
+    END_OF_FILE  = 4
 
     getter :type
 
-    def initialize(@type=UNKNOWN, message=nil)
+    def initialize(@type = UNKNOWN, message = nil)
       super(message)
     end
   end
 
   class BaseTransport
     def open?; end
-    
+
     def open; end
 
     def close; end
@@ -55,7 +55,7 @@ module Thrift
         chunk = read(size - buf.size)
         buf << chunk
       end
-    
+
       buf
     end
 
@@ -65,7 +65,10 @@ module Thrift
     #
     # Returns nothing.
     def write(buf); end
-    def <<(buf); write(buf); end
+
+    def <<(buf)
+      write(buf)
+    end
 
     def flush; end
 
@@ -73,12 +76,12 @@ module Thrift
       "base"
     end
   end
-  
+
   class BaseTransportFactory
     def get_transport(trans)
       return trans
     end
-    
+
     def to_s
       "base"
     end

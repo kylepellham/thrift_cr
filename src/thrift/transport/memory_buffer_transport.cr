@@ -1,5 +1,5 @@
 # encoding: ascii-8bit
-# 
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements. See the NOTICE file
 # distributed with this work for additional information
@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License. You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -25,8 +25,9 @@ module Thrift
   class MemoryBufferTransport < BaseTransport
     GARBAGE_BUFFER_SIZE = 0x1 << 12 # 4kB
 
-     @buf : Bytes
-     @index : Int32
+    @buf : Bytes
+    @index : Int32
+
     def initialize(buffer : Bytes? = nil)
       @buf = buffer ? buffer : Bytes.empty
       @index = 0
@@ -38,7 +39,7 @@ module Thrift
 
     def open
     end
-    
+
     def close
     end
 
@@ -46,8 +47,8 @@ module Thrift
       @index < @buf.size
     end
 
-    def reset_buffer(new_buffer : Bytes)
-      @buf = new_buffer
+    def reset_buffer(new_buffer : Bytes? = nil)
+      @buf = new_buffer || Bytes.new(0)
       @index = 0
     end
 
@@ -110,5 +111,3 @@ module Thrift
     end
   end
 end
-
-

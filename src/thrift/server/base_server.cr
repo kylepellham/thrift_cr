@@ -3,14 +3,14 @@ require "../transport/base_transport.cr"
 require "../protocol/base_protocol.cr"
 require "../processor.cr"
 
-
 module Thrift
   class BaseServer
     @processor : Thrift::Processor
     @server_transport : Thrift::BaseServerTransport
     @protocol_factory : Thrift::BaseProtocolFactory
     @transport_factory : Thrift::BaseTransportFactory
-    def initialize(processor, server_transport, transport_factory=nil, protocol_factory=nil)
+
+    def initialize(processor, server_transport, transport_factory = nil, protocol_factory = nil)
       @processor = processor
       @server_transport = server_transport
       @transport_factory = transport_factory ? transport_factory : Thrift::BaseTransportFactory.new

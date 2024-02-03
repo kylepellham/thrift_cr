@@ -1,6 +1,7 @@
 require "./types.cr"
 require "./protocol/base_protocol.cr"
 
+# reopen slice so we can make a succinct way to expand slices
 struct Slice(T)
   def join_with(other : self)
     new_slice = Pointer(T).malloc self.size + other.size
@@ -14,11 +15,12 @@ struct Slice(T)
     Slice.new(new_slice, appender.size)
   end
 
-  def << (other : self)
+  def <<(other : self)
     join_with(other)
   end
 end
 
+# this where we inject thrifty-ness into crystal
 macro define_thrift_type(thrift_type)
   def self.thrift_type
     {{thrift_type}}
@@ -29,9 +31,17 @@ macro define_thrift_type(thrift_type)
   end
 end
 
+struct Nil
+  define_thrift_type ::Thrift::Types::Void
+
+  # we only need a write to accomidate nilable types
+  def write(oprot)
+  end
+end
+
 struct Bool
   define_thrift_type ::Thrift::Types::Bool
-  
+
   def write(oprot : ::Thrift::BaseProtocol)
     oprot.write_bool(self)
   end
@@ -95,7 +105,7 @@ struct Float64
   def write(oprot : ::Thrift::BaseProtocol)
     oprot.write_double(self)
   end
-   
+
   def self.read(iprot : ::Thrift::BaseProtocol)
     iprot.read_double
   end
@@ -129,7 +139,7 @@ abstract struct Enum
   end
 
   def self.read(iprot : ::Thrift::BaseProtocol)
-    self.from_value(iprot.read_i32)
+    self.from_value?(iprot.read_i32)
   end
 end
 
@@ -199,8 +209,8 @@ class Hash(K, V)
 
   def write(oprot : ::Thrift::BaseProtocol)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
-          @type.type_vars[1].class.has_method?(:thrift_type) %}
-      oprot.write_map_begin(K.thrift_type, V.thrift_type, self. size)
+            @type.type_vars[1].class.has_method?(:thrift_type) %}
+      oprot.write_map_begin(K.thrift_type, V.thrift_type, self.size)
       each do |key, value|
         key.write(oprot)
         value.write(oprot)
@@ -215,7 +225,7 @@ class Hash(K, V)
   def self.read(iprot : ::Thrift::BaseProtocol)
     ret = Hash(K, V).new
     {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
-          @type.type_vars[1].class.has_method?(:thrift_type)%}
+            @type.type_vars[1].class.has_method?(:thrift_type) %}
       _, _, size = iprot.read_map_begin
       size.times do |_|
         key = K.read(iprot)

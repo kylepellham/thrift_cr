@@ -3,9 +3,8 @@ require "../transport/memory_buffer_transport.cr"
 
 module Thrift
   class Serializer
+    @protocol : BaseProtocol
 
-    @transport : BaseTransport
-    @protocol : BaseProtocolFactory
     def initialize(protocol_factory = BinaryProtocolFactory.new)
       @transport = MemoryBufferTransport.new
       @protocol = protocol_factory.get_protocol(@transport)
@@ -18,4 +17,3 @@ module Thrift
     end
   end
 end
-
