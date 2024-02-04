@@ -7,8 +7,9 @@ module Thrift
     TYPE_MASK    = 0x000000ff_u32
 
     getter :strict_read, :strict_write
+    getter byte_format : IO::ByteFormat
 
-    def initialize(trans, @strict_read = true, @strict_write = true)
+    def initialize(trans, @strict_read = true, @strict_write = true, *, @byte_format = IO::ByteFormat::BigEndian)
       super(trans)
       # Pre-allocated read buffer for fixed-size read methods. Needs to be at least 8 bytes long for
       # read_i64() and read_double().
@@ -66,31 +67,31 @@ module Thrift
 
     def write_byte(byte : UInt8)
       raw = Bytes.new(1, 0)
-      IO::ByteFormat::BigEndian.encode(byte, raw)
+      byte_format.encode(byte, raw)
       trans.write(raw)
     end
 
     def write_i16(i16 : Int16)
       raw = Bytes.new(2, 0)
-      IO::ByteFormat::BigEndian.encode(i16, raw)
+      byte_format.encode(i16, raw)
       trans.write(raw)
     end
 
     def write_i32(i32 : Int32)
       raw = Bytes.new(4, 0)
-      IO::ByteFormat::BigEndian.encode(i32, raw)
+      byte_format.encode(i32, raw)
       trans.write(raw)
     end
 
     def write_i64(i64 : Int64)
       raw = Bytes.new(8, 0)
-      IO::ByteFormat::BigEndian.encode(i64, raw)
+      byte_format.encode(i64, raw)
       trans.write(raw)
     end
 
     def write_double(dub : Float64)
       raw = Bytes.new(8, 0)
-      IO::ByteFormat::BigEndian.encode(dub, raw)
+      byte_format.encode(dub, raw)
       trans.write(raw)
     end
 
@@ -174,22 +175,22 @@ module Thrift
 
     def read_i16 : Int16
       trans.read_into_buffer(@rbuf, 2)
-      val = IO::ByteFormat::BigEndian.decode(Int16, @rbuf)
+      val = byte_format.decode(Int16, @rbuf)
     end
 
     def read_i32 : Int32
       trans.read_into_buffer(@rbuf, 4)
-      val = IO::ByteFormat::BigEndian.decode(Int32, @rbuf)
+      val = byte_format.decode(Int32, @rbuf)
     end
 
     def read_i64 : Int64
       trans.read_into_buffer(@rbuf, 8)
-      val = IO::ByteFormat::BigEndian.decode(Int64, @rbuf)
+      val = byte_format.decode(Int64, @rbuf)
     end
 
     def read_double : Float64
       trans.read_into_buffer(@rbuf, 8)
-      val = IO::ByteFormat::BigEndian.decode(Float64, @rbuf)
+      val = byte_format.decode(Float64, @rbuf)
     end
 
     def read_string : String
@@ -208,8 +209,12 @@ module Thrift
   end
 
   class BinaryProtocolFactory < BaseProtocolFactory
+    getter byte_format : IO::ByteFormat
+    def initialize(@byte_format = IO::ByteFormat::BigEndian)
+    end
+
     def get_protocol(trans)
-      return Thrift::BinaryProtocol.new(trans)
+      return Thrift::BinaryProtocol.new(trans, byte_format: byte_format)
     end
 
     def to_s

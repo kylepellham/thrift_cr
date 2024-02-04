@@ -308,7 +308,7 @@ struct Bool
 end
 
 struct Int8
-  define_thrift_type ::Thrift::Types::I8
+  define_thrift_type ::Thrift::Types::Byte
 
   def write(oprot : ::Thrift::BaseProtocol)
     oprot.write_byte(self.unsafe_as(UInt8))
@@ -414,7 +414,8 @@ class Array(T)
 
   def self.read(iprot : ::Thrift::BaseProtocol)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
-      _, size = iprot.read_list_begin
+      etype, size = iprot.read_list_begin
+      raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{::Thrift::Types.from_value?(etype)}, expected: #{T.thrift_type}") if T.thrift_type != ::Thrift::Types.from_value?(etype)
       ret = Array(T).new(size) do |_|
         T.read(iprot)
       end
@@ -444,7 +445,8 @@ struct Set(T)
   def self.read(iprot : ::Thrift::BaseProtocol)
     ret = Set(T).new
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
-      _, size = iprot.read_set_begin
+      etype, size = iprot.read_set_begin
+      raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{::Thrift::Types.from_value?(etype)}, expected: #{T.thrift_type}") if T.thrift_type != ::Thrift::Types.from_value?(etype)
       size.times do |_|
         ret << T.read(iprot)
       end
@@ -478,7 +480,12 @@ class Hash(K, V)
     ret = Hash(K, V).new
     {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
           @type.type_vars[1].class.has_method?(:thrift_type) %}
-      _, _, size = iprot.read_map_begin
+      ktype, vtype, size = iprot.read_map_begin
+      if (ktype_enum = ::Thrift::Types.from_value?(ktype)) != K.thrift_type ||
+         (vtype_enum = ::Thrift::Types.from_value?(vtype)) != V.thrift_type
+        message = "Recieved type for Keys AND/OR Value do not match - expected key: #{K.thrift_type}, recieved key: #{ktype_enum} - expected value: #{V.thrift_type}, recieved value: #{vtype_enum}"
+        raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, message)
+      end
       size.times do |_|
         key = K.read(iprot)
         ret[key] = V.read(iprot)
