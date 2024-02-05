@@ -6,14 +6,14 @@ module Thrift
     end
 
     private macro generate_union_writer
-      def write(oprot : ::Thrift::BaseProtocol)
+      def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
         validate
         oprot.write_struct_begin(\{{@type.stringify}})
         \{% begin %}
           case union_internal
           \{% for var in @type.methods.select(&.annotation(UnionVar)) %}
             when .is_a?(\{{var.return_type}})
-              oprot.write_field_begin(\{{var.name.stringify}}, \{{var.name}}.thrift_type, \{{var.annotation(Struct::Property)[:id]}}.to_i16)
+              oprot.write_field_begin(\{{var.name.stringify}}, \{{var.name}}.thrift_type, \{{var.annotation(::Thrift::Struct::Property)[:id]}}.to_i16)
               \{{var.name}}.write(oprot)
               oprot.write_field_end
           \{% end %}
@@ -34,8 +34,8 @@ module Thrift
           raise "Too Many fields for Union" if union_set?
           \{% begin %}
           case fid
-            \{% for var in @type.methods.select(&annotation(UnionVar)) %}
-              when  \{{var.annotation(Struct::Property)[:id]}}
+            \{% for var in @type.methods.select(&.annotation(UnionVar)) %}
+              when  \{{var.annotation(::Thrift::Struct::Property)[:id]}}
                 recieved_struct.\{{var.name}} = \{{var.return_type}}.read(iprot)
             \{% end %}
           end
@@ -79,7 +79,7 @@ module Thrift
       {% end %}
 
       def union_set?
-        @storage.nil?
+        !@storage.nil?
       end
 
       private def union_internal

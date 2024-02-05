@@ -14,6 +14,27 @@ class TestClass
   end
 end
 
+class UnionTest
+  include ::Thrift::Union
+
+  @[::Thrift::Struct::Property(id: 1)]
+  union_property map : Hash(String, Int32)
+  @[::Thrift::Struct::Property(id: 2)]
+  union_property int : Int32
+  @[::Thrift::Struct::Property(id: 3)]
+  union_property string : String
+  @[::Thrift::Struct::Property(id: 4)]
+  union_property list : Array(Int32)
+
+  def initialize
+  end
+
+  def validate
+    raise "not set" unless union_set?
+  end
+end
+
+
 # helper to check list data
 def check_list_data(data_size, buffer, *expected)
   # always this way for lists
@@ -28,6 +49,34 @@ end
 describe ::Thrift::BinaryProtocol do
   describe "Big Endian Encoded" do
     binary_serializer = ::Thrift::Serializer.new(::Thrift::BinaryProtocolFactory.new IO::ByteFormat::BigEndian)
+    trans = ::Thrift::MemoryBufferTransport.new
+    strict_writer = ::Thrift::BinaryProtocol.new(trans)
+    non_strict_writer = ::Thrift::BinaryProtocol.new(trans, false, false)
+
+    describe "#write_message_begin" do
+      it "strict writes" do
+        trans.reset_buffer
+        strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
+        bytes = trans.read_all trans.available
+        bytes[0..1].should eq(Bytes[128, 1]) # Bytes[128, 1] == 0x8001
+        bytes[2..3].should eq(Bytes[0, 4]) # Bytes[0, 4] == 4 == MessageTypes::Oneway
+        # size of string
+        bytes[4..7].should eq(Bytes[0, 0, 0, 4]) # Bytes[0, 0, 0, 4] == "Test".size
+        bytes[8..11].should eq(Bytes[84, 101, 115, 116]) # Bytes[84, 101, 115, 116] == "Test"
+        bytes[12..15].should eq(Bytes[0, 0, 0, 1]) # Bytes[0, 0, 0, 1] == 1 == seqid
+      end
+
+      it "non-strict writes" do
+        trans.reset_buffer
+        non_strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
+        bytes = trans.read_all trans.available
+        bytes[0..3].should eq(Bytes[0, 0, 0, 4])
+        bytes[4..7].should eq(Bytes[84, 101, 115, 116]) # Bytes[84, 101, 115, 116] == "Test"
+        bytes[8].should eq(4) # 4 == 4 == MessageType::Oneway
+        bytes[9..12].should eq(Bytes[0, 0, 0, 1]) # Bytes[0, 0, 0, 1] == 1 == seqid
+      end
+    end
+
 
     describe "#write_i8" do
       it "writes Int8" do
@@ -285,9 +334,18 @@ describe ::Thrift::BinaryProtocol do
         end
       end
     end
-  end
 
-  describe "writing struct" do
+    describe "writing struct" do
 
+    end
+
+    describe "writing Union" do
+      it "writes union" do
+        union = UnionTest.new(map: {"hello" => 24})
+        binary_serializer.serialize(union)
+        union.string = "hello"
+        binary_serializer.serialize(union)
+      end
+    end
   end
 end

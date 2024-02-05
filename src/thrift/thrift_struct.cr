@@ -6,22 +6,14 @@ module Thrift
     annotation Property
     end
 
-    macro tstruct_property(name)
-      {% if name.is_a?(TypeDeclaration) %}
-        property {{name.var.id}} : {{name.type.id}}?
-      {% else %}
-        {{raise "Must be a type declaration"}}
-      {% end %}
-    end
-
     private macro generate_writer
-      def write(oprot : ::Thrift::BaseProtocol)
+      def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
         validate
         oprot.write_struct_begin(\{{@type.stringify}})
         \{% for var in @type.instance_vars %}
           oprot.write_field_begin(\{{var.name.stringify}}, @\{{var}}.thrift_type, \{{var.annotation(Property)[:id]}}.to_i16)
-          @\{{var}}.write(oprot)
-          oprot.write_field_end()
+          @\{{var}}.write(oprot, binary: \{{var.annotation(Property)[:binary]}})
+          oprot.write_field_end
         \{% end %}
         oprot.write_field_stop
         oprot.write_struct_end

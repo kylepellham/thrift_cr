@@ -283,14 +283,24 @@ macro define_thrift_type(thrift_type)
   end
 end
 
+abstract class Object
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
+    raise NotImplementedError.new "Thrift Write Not implemented for class"
+  end
+
+  def read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
+    raise NotImplementedError.new "Thrift Read Not implented for class"
+  end
+end
+
 struct Nil
   define_thrift_type ::Thrift::Types::Void
 
   # we only need a write to accomidate nilable types
-  def write(oprot)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
   end
 
-  def read(iprot)
+  def read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     nil
   end
 end
@@ -298,7 +308,7 @@ end
 struct Bool
   define_thrift_type ::Thrift::Types::Bool
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_bool(self)
   end
 
@@ -310,11 +320,11 @@ end
 struct Int8
   define_thrift_type ::Thrift::Types::Byte
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_byte(self.unsafe_as(UInt8))
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     iprot.read_byte.unsafe_as(Int8)
   end
 end
@@ -322,11 +332,11 @@ end
 struct Int16
   define_thrift_type ::Thrift::Types::I16
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_i16(self)
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     iprot.read_i16
   end
 end
@@ -334,11 +344,11 @@ end
 struct Int32
   define_thrift_type ::Thrift::Types::I32
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_i32(self)
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     iprot.read_i32
   end
 end
@@ -346,11 +356,11 @@ end
 struct Int64
   define_thrift_type ::Thrift::Types::I64
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_i64(self)
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     iprot.read_i64
   end
 end
@@ -358,11 +368,11 @@ end
 struct Float64
   define_thrift_type ::Thrift::Types::Double
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_double(self)
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     iprot.read_double
   end
 end
@@ -370,27 +380,31 @@ end
 class String
   define_thrift_type ::Thrift::Types::String
 
-  def write(oprot : ::Thrift::BaseProtocol, *, binary = false)
-    if binary
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
+    if valid_encoding?
       oprot.write_binary(self.to_slice)
     else
       oprot.write_string(self)
     end
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
-    iprot.read_string
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
+    if kwargs[:binary]?
+      String.new(iprot.read_binary)
+    else
+      iprot.read_string
+    end
   end
 end
 
 abstract struct Enum
   define_thrift_type ::Thrift::Types::I32
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     oprot.write_i32(self.to_i32)
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     self.from_value?(iprot.read_i32)
   end
 end
@@ -400,7 +414,7 @@ end
 class Array(T)
   define_thrift_type ::Thrift::Types::List
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
       oprot.write_list_begin(T.thrift_type, self.size)
       each do |element|
@@ -412,7 +426,7 @@ class Array(T)
     {% end %}
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
       etype, size = iprot.read_list_begin
       raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{::Thrift::Types.from_value?(etype)}, expected: #{T.thrift_type}") if T.thrift_type != ::Thrift::Types.from_value?(etype)
@@ -430,7 +444,7 @@ end
 struct Set(T)
   define_thrift_type ::Thrift::Types::Set
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
       oprot.write_set_begin(T.thrift_type, self.size)
       each do |element|
@@ -442,7 +456,7 @@ struct Set(T)
     {% end %}
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     ret = Set(T).new
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
       etype, size = iprot.read_set_begin
@@ -461,7 +475,7 @@ end
 class Hash(K, V)
   define_thrift_type ::Thrift::Types::Map
 
-  def write(oprot : ::Thrift::BaseProtocol)
+  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
           @type.type_vars[1].class.has_method?(:thrift_type) %}
       oprot.write_map_begin(K.thrift_type, V.thrift_type, self.size)
@@ -476,7 +490,7 @@ class Hash(K, V)
     {% debug %}
   end
 
-  def self.read(iprot : ::Thrift::BaseProtocol)
+  def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
     ret = Hash(K, V).new
     {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
           @type.type_vars[1].class.has_method?(:thrift_type) %}

@@ -20,7 +20,6 @@ module Thrift
       # this is necessary because we added (needed) bounds checking to
       # write_i32, and 0x80010000 is too big for that.
       if strict_write
-        # p! (0xffff_u16 & (VERSION_1 >> 16)).unsafe_as(Int16)
         write_i16((0xffff_u16 & (VERSION_1 >> 16)).unsafe_as(Int16))
         write_i16(type.to_i16)
         write_string(name)
@@ -112,7 +111,7 @@ module Thrift
         if ((unsigned_version & VERSION_MASK) != VERSION_1)
           raise ProtocolException.new(ProtocolException::BAD_VERSION, "Missing version identifier")
         end
-        type = (unsigned_version & TYPE_MASK).to_u8
+        type = unsigned_version.to_u8
         name = read_string
         seqid = read_i32
         return name, type, seqid
@@ -166,11 +165,7 @@ module Thrift
     end
 
     def read_byte : UInt8
-      val = trans.read_byte
-      if (val > 0x7f)
-        val = (0 - ((val - 1) ^ 0xff)).to_u8
-      end
-      val
+      trans.read_byte
     end
 
     def read_i16 : Int16
