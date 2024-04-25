@@ -30,6 +30,7 @@ module Thrift
         iprot.read_struct_begin
         loop do
           name, type, fid = iprot.read_field_begin
+          puts fid
           break if type == ::Thrift::Types::Stop
           next if type == ::Thrift::Types::Void
           \{% begin %}
@@ -40,8 +41,9 @@ module Thrift
             \{% else %}
               \{{raise "Union too large for thrift struct. Nilable types only"}}
             \{% end %}
-            when \{{var.annotation(Property)[:id]}}
-              \{{@type}}.\{{var}} = \{{type}}.read(iprot)
+            \{{puts var.annotation(::Thrift::Struct::Property)[:id].id}}
+            when \{{var.annotation(::Thrift::Struct::Property)[:id].id}}
+              recieved_struct.\{{var}} = \{{type}}.read(iprot)
           \{% end %}
           else
             raise "Not a Possible field #{fid}"

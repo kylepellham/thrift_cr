@@ -3,13 +3,13 @@ require "./base_transport.cr"
 
 module Thrift
   class Socket < BaseTransport
-    @handle : TCPSocket?
 
     def initialize(@host = "localhost", @port = 9090, @timeout : Int32? = nil)
       @desc = "#{@host}:#{@port}"
     end
 
-    property :handle, :timeout
+    property handle : TCPSocket?
+    property :timeout
 
     def open : TCPSocket
       last_exception = Exception.new("Could Not Resolve Address")
@@ -36,15 +36,14 @@ module Thrift
       !(handle = @handle).nil? && !handle.closed?
     end
 
-    def write(msg)
+    def write(slice : Bytes) : Nil
       raise "closed stream" unless open?
       begin
         if @timeout.nil? || @timeout == 0
           if handle = @handle
-            handle.send(msg)
-            sent = msg.size
-            if sent < msg.size
-              raise TransportException.new(TransportException::TIMED_OUT, "Socket: Timed out writing #{msg.size} bytes to #{@desc}")
+            sent = handle.send(slice)
+            if sent < slice.size
+              raise TransportException.new(TransportException::TIMED_OUT, "Socket: Timed out writing #{slice.size} bytes to #{@desc}")
             end
           else
             raise TransportException.new(TransportException::NOT_OPEN, "Transport is Nil")
@@ -60,29 +59,24 @@ module Thrift
       end
     end
 
-    def read(sz)
+    def read(slice : Bytes)
       raise "closed stream" unless open?
-      buf = Bytes.new(sz, 0)
       read = 0
       begin
         if handle = @handle
-          # p! handle
-          read, _ = handle.receive(buf)
-          # p! buf
+          read, _ = handle.receive(slice)
         end
         if (read < 1)
-          raise TransportException.new(TransportException::UNKNOWN, "Socket: Could not read #{sz} bytes from #{@desc}")
+          raise TransportException.new(TransportException::UNKNOWN, "Socket: Could not read #{slice.size} bytes from #{@desc}")
         end
       rescue ex : TransportException
         # don't let this get caught by the standard Exception handler
         raise ex
       rescue ex : Exception
         @handle.try(&.close)
-        @handle = nil
-        # pp "failed"
         raise TransportException.new(TransportException::NOT_OPEN, ex.message)
       end
-      buf
+      read
     end
 
     def close
@@ -92,7 +86,7 @@ module Thrift
       @handle = nil
     end
 
-    def to_io
+    def io : IO
       handle
     end
 

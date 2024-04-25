@@ -104,14 +104,14 @@ module Thrift
       trans.write(buf)
     end
 
-    def read_message_begin : Tuple(String, UInt8, Int32)
+    def read_message_begin : Tuple(String, Thrift::MessageTypes, Int32)
       version = read_i32
       if version < 0
         unsigned_version = version.unsafe_as(UInt32)
         if ((unsigned_version & VERSION_MASK) != VERSION_1)
           raise ProtocolException.new(ProtocolException::BAD_VERSION, "Missing version identifier")
         end
-        type = unsigned_version.to_u8
+        type = Thrift::MessageTypes.new(unsigned_version)
         name = read_string
         seqid = read_i32
         return name, type, seqid
@@ -119,8 +119,10 @@ module Thrift
         if strict_read
           raise ProtocolException.new(ProtocolException::BAD_VERSION, "No version identifier, old protocol client?")
         end
-        encoded_name = trans.read_all(version)
-        type = read_byte
+        encoded_name = Bytes.new(version)
+        trans.read(encoded_name)
+        # encoded_name = trans.read_all(version)
+        type = Thrift::MessageTypes.new(read_byte)
         seqid = read_i32
         return String.new(encoded_name), type, seqid
       end
@@ -164,27 +166,33 @@ module Thrift
       byte != 0
     end
 
-    def read_byte : UInt8
-      trans.read_byte
+    def read_byte : Int8
+      byte = trans.read_byte
+      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enought Bytes to read" unless byte
+      byte.unsafe_as(Int8)
     end
 
     def read_i16 : Int16
-      trans.read_into_buffer(@rbuf, 2)
+      bytes_read = trans.read(@rbuf)
+      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Int16)
       val = byte_format.decode(Int16, @rbuf)
     end
 
     def read_i32 : Int32
-      trans.read_into_buffer(@rbuf, 4)
+      bytes_read = trans.read(@rbuf)
+      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Int32)
       val = byte_format.decode(Int32, @rbuf)
     end
 
     def read_i64 : Int64
-      trans.read_into_buffer(@rbuf, 8)
+      bytes_read = trans.read(@rbuf)
+      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Int64)
       val = byte_format.decode(Int64, @rbuf)
     end
 
     def read_double : Float64
-      trans.read_into_buffer(@rbuf, 8)
+      bytes_read = trans.read(@rbuf)
+      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Float64)
       val = byte_format.decode(Float64, @rbuf)
     end
 

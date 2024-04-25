@@ -7,10 +7,19 @@ enum TestEnum
 end
 
 class TestClass
+  include ::Thrift::Struct
   @[::Thrift::Struct::Property(id: 1)]
   property inst_var1 : Int32?
+  @[::Thrift::Struct::Property(id: 1)]
+  property req_inst_var : String?
 
-  def initialize(@inst_var1)
+
+  def initialize(@inst_var1 = nil, @req_inst_var = nil)
+  end
+
+  def validate
+    raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN,
+                      "Required field req_inst_var is unset!") unless req_inst_var
   end
 end
 
@@ -45,7 +54,6 @@ def check_list_data(data_size, buffer, *expected)
   end
 end
 
-
 describe ::Thrift::BinaryProtocol do
   describe "Big Endian Encoded" do
     binary_serializer = ::Thrift::Serializer.new(::Thrift::BinaryProtocolFactory.new IO::ByteFormat::BigEndian)
@@ -55,7 +63,7 @@ describe ::Thrift::BinaryProtocol do
 
     describe "#write_message_begin" do
       it "strict writes" do
-        trans.reset_buffer
+        trans.clear
         strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
         bytes = trans.read_all trans.available
         bytes[0..1].should eq(Bytes[128, 1]) # Bytes[128, 1] == 0x8001
@@ -67,7 +75,7 @@ describe ::Thrift::BinaryProtocol do
       end
 
       it "non-strict writes" do
-        trans.reset_buffer
+        trans.clear
         non_strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
         bytes = trans.read_all trans.available
         bytes[0..3].should eq(Bytes[0, 0, 0, 4])
@@ -78,17 +86,17 @@ describe ::Thrift::BinaryProtocol do
     end
 
 
-    describe "#write_i8" do
-      it "writes Int8" do
-        binary_serializer.serialize(12_i8).should eq(Bytes[12])
+    describe "#write_byte" do
+      it "writes Byte" do
+        binary_serializer.serialize(12_u8).should eq(Bytes[12])
       end
 
-      it "writes max Int8" do
-        binary_serializer.serialize(Int8::MAX).should eq(Bytes[127])
+      it "writes max Byte" do
+        binary_serializer.serialize(UInt8::MAX).should eq(Bytes[255])
       end
 
-      it "writes negative Int8" do
-        binary_serializer.serialize(-1_i8).should eq(Bytes[255])
+      it "writes min Byte" do
+        binary_serializer.serialize(UInt8::MIN).should eq(Bytes[0])
       end
     end
 
@@ -172,18 +180,18 @@ describe ::Thrift::BinaryProtocol do
         size_index = 1
 
         it "writes empty List" do
-          bytes = binary_serializer.serialize([] of Int8) #.should eq(Bytes[3, 0, 0, 0, 0])
+          bytes = binary_serializer.serialize([] of UInt8) #.should eq(Bytes[3, 0, 0, 0, 0])
           bytes[type_index].should eq(::Thrift::Types::Byte.to_u8)
           bytes[size_index..(size_index + sizeof(Int32) - 1)].should eq(Bytes[0, 0, 0, 0])
         end
 
         it "writes List of Int8" do
-          test_data = [1_i8, 5_i8, -1_i8]
+          test_data = [1_u8, 5_u8, 255_u8]
           bytes = binary_serializer.serialize(test_data) #.should eq(Bytes[3, 0, 0, 0, 3, 1, 5, 255])
           size_end_index = size_index + sizeof(Int32) - 1
           bytes[type_index].should eq(::Thrift::Types::Byte.to_u8)
           bytes[size_index..size_end_index].should eq(Bytes[0, 0, 0, 3])
-          check_list_data(sizeof(Int8), bytes, Bytes[1], Bytes[5], Bytes[255])
+          check_list_data(sizeof(UInt8), bytes, Bytes[1], Bytes[5], Bytes[255])
         end
 
         it "writes List of Int16" do
@@ -336,15 +344,27 @@ describe ::Thrift::BinaryProtocol do
     end
 
     describe "writing struct" do
+      it "writes populated field" do
+        binary_serializer.serialize(TestClass.new(24, "")).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 11, 0, 1, 0, 0, 0, 0, 0])
+      end
 
+      it "writes non populated field" do
+        binary_serializer.serialize(TestClass.new(nil, "")).should eq(Bytes[1, 0, 1, 11, 0, 1, 0, 0, 0, 0, 0])
+      end
+
+      it "throws with non populated required field" do
+        expect_raises(Exception) do
+          binary_serializer.serialize(TestClass.new(nil, nil))
+        end
+      end
     end
 
     describe "writing Union" do
       it "writes union" do
         union = UnionTest.new(map: {"hello" => 24})
-        binary_serializer.serialize(union)
+        binary_serializer.serialize(union).should eq(Bytes[13, 0, 1, 11, 8, 0, 0, 0, 1, 0, 0, 0, 5, 104, 101, 108, 108, 111, 0, 0, 0, 24, 0])
         union.string = "hello"
-        binary_serializer.serialize(union)
+        binary_serializer.serialize(union).should eq Bytes[11, 0, 3, 0, 0, 0, 5, 104, 101, 108, 108, 111, 0]
       end
     end
   end

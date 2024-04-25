@@ -1,5 +1,5 @@
 module Thrift
-  enum Types : UInt8
+  enum Types : Int8
     Stop   =  0
     Void   =  1
     Bool   =  2
@@ -15,7 +15,7 @@ module Thrift
     List   = 15
   end
 
-  enum MessageTypes : UInt8
+  enum MessageTypes : Int8
     Call      = 1
     Reply     = 2
     Exception = 3

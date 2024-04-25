@@ -13,7 +13,9 @@ module Thrift
     def serialize(base)
       @transport.reset_buffer
       base.write(@protocol)
-      @transport.read(@transport.available)
+      buf = Bytes.new(@transport.available)
+      @transport.read(buf)
+      buf
     end
   end
 end

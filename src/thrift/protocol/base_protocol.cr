@@ -76,11 +76,11 @@ module Thrift
       nil
     end
 
-    def write_bool(bool : Boolean)
+    def write_bool(bool : Bool)
       raise NotImplementedError.new ""
     end
 
-    def write_byte(byte : UInt8)
+    def write_byte(byte : Int8)
       raise NotImplementedError.new ""
     end
 
@@ -120,7 +120,7 @@ module Thrift
       raise NotImplementedError.new ""
     end
 
-    def read_message_begin : Tuple(String, UInt8, Int32)
+    def read_message_begin : Tuple(String, Thrift::MessageTypes, Int32)
       raise NotImplementedError.new ""
     end
 
@@ -136,7 +136,7 @@ module Thrift
       nil
     end
 
-    def read_field_begin
+    def read_field_begin : Tuple(String, Thrift::Types, Int32)
       raise NotImplementedError.new ""
     end
 
@@ -144,7 +144,7 @@ module Thrift
       nil
     end
 
-    def read_map_begin : Tuple(UInt8, UInt8, Int32)
+    def read_map_begin : Tuple(Thrift::Type, Thrift::Type, Int32)
       raise NotImplementedError.new ""
     end
 
@@ -152,7 +152,7 @@ module Thrift
       nil
     end
 
-    def read_list_begin
+    def read_list_begin : Tuple(Thrift::Type, Int32)
       raise NotImplementedError.new ""
     end
 
@@ -160,7 +160,7 @@ module Thrift
       nil
     end
 
-    def read_set_begin : Tuple(UInt8, Int32)
+    def read_set_begin : Tuple(Thrift::Type, Int32)
       raise NotImplementedError.new ""
     end
 
@@ -168,11 +168,11 @@ module Thrift
       nil
     end
 
-    def read_bool
+    def read_bool : Bool
       raise NotImplementedError.new ""
     end
 
-    def read_byte : Bool
+    def read_byte : Int8
       raise NotImplementedError.new ""
     end
 
@@ -283,16 +283,6 @@ macro define_thrift_type(thrift_type)
   end
 end
 
-abstract class Object
-  def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
-    raise NotImplementedError.new "Thrift Write Not implemented for class"
-  end
-
-  def read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
-    raise NotImplementedError.new "Thrift Read Not implented for class"
-  end
-end
-
 struct Nil
   define_thrift_type ::Thrift::Types::Void
 
@@ -317,15 +307,15 @@ struct Bool
   end
 end
 
-struct Int8
+struct Int8 # AKA Byte
   define_thrift_type ::Thrift::Types::Byte
 
   def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
-    oprot.write_byte(self.unsafe_as(UInt8))
+    oprot.write_byte(self)
   end
 
   def self.read(iprot : ::Thrift::BaseProtocol, *args, **kwargs)
-    iprot.read_byte.unsafe_as(Int8)
+    iprot.read_byte
   end
 end
 
@@ -381,7 +371,7 @@ class String
   define_thrift_type ::Thrift::Types::String
 
   def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
-    if valid_encoding?
+    if  kwargs[:binary]?
       oprot.write_binary(self.to_slice)
     else
       oprot.write_string(self)

@@ -3,91 +3,108 @@ require "../helpers.cr"
 
 module Thrift
   class BufferedTransport < BaseTransport
-    DEFAULT_BUFFER = 4096
+    include IO::Buffered
 
     @transport : BaseTransport
-    @wbuf : Bytes
-    @rbuf : Bytes
-    @index : Int32 = 0
+    def initialize(@transport)
+    end
 
-    def initialize(transport)
-      @transport = transport
-      @wbuf = Bytes.empty
-      @rbuf = Bytes.empty
+    def unbuffered_read(slice : Bytes)
+      @transport.read(slice)
+    end
+
+    def unbuffered_write(slice : Bytes)
+      @transport.write(slice)
+    end
+
+    def unbuffered_flush
+      @transport.flush
+    end
+
+    def unbuffered_close
+      @transport.close
+    end
+
+    def unbuffered_rewind
+      @pos = 0
     end
 
     def open?
       return @transport.open?
     end
+    # DEFAULT_BUFFER = 4096
 
-    def open
-      @transport.open
-    end
+    # @transport : BaseTransport
+    # @wbuf : Bytes
+    # @rbuf : Bytes
+    # @index : Int32 = 0
 
-    def close
-      flush
-      @transport.close
-    end
+    # def initialize(transport)
+    #   @transport = transport
+    #   @wbuf = Bytes.empty
+    #   @rbuf = Bytes.empty
+    # end
 
-    def read(sz)
-      @index += sz
+    # def open?
+    #   return @transport.open?
+    # end
 
-      ret = if (tmp = @rbuf[(@index - sz)..(@index - 1)]).empty?
-              Bytes.empty
-            else
-              tmp
-            end
+    # def open
+    #   @transport.open
+    # end
 
-      if ret.empty?
-        @rbuf = @transport.read(Math.max(sz, DEFAULT_BUFFER))
-        @index = sz
-        ret = if (tmp = @rbuf[0..sz]).empty?
-                ret = Bytes.empty
-              else
-                tmp
-              end
-      end
-      ret
-    end
+    # def close
+    #   flush
+    #   @transport.close
+    # end
 
-    def read_byte
-      if @index >= @rbuf.size
-        @transport.read(DEFAULT_BUFFER)
-        @index = 0
-      end
+    # def read(slice : Bytes) : Int32
+    #   @index += slice.size
 
-      @index += 1
-      return @rbuf[@index - 1]
-    end
+    #   ret = if (tmp = @rbuf[(@index - slice.size)..(@index - 1)]).empty?
+    #           Bytes.empty
+    #         else
+    #           tmp
+    #         end
 
-    def read_into_buffer(buffer, size)
-      i = 0
-      while i < size
-        if @index >= @rbuf.size
-          @rbuf = @transport.read(DEFAULT_BUFFER)
-          # p! @rbuf
-          @index = 0
-        end
+    #   if ret.empty?
+    #     @rbuf = @transport.read_all(Math.max(slice.size, DEFAULT_BUFFER))
+    #     @index = slice.size
+    #     ret = if (tmp = @rbuf[0..slice.size - 1]).empty?
+    #             Bytes.empty
+    #           else
+    #             tmp
+    #           end
+    #   end
+    #   slice.copy_from(ret)
+    #   slice.size
+    # end
 
-        byte = @rbuf[@index]
-        buffer[i] = byte
-        @index += 1
-        i += 1
-      end
-      i
-    end
+    # def read_byte
+    #   if @index >= @rbuf.size
+    #     @transport.read_all(DEFAULT_BUFFER)
+    #     @index = 0
+    #   end
 
-    def write(buf)
-      @wbuf = @wbuf.join_with buf
-    end
+    #   @index += 1
+    #   return @rbuf[@index - 1]
+    # end
 
-    def flush
-      unless @wbuf.empty?
-        @transport.write(@wbuf)
-        @wbuf = Bytes.empty
-      end
-      @transport.flush
-    end
+    # def write(buf) : Nil
+    #   @wbuf = @wbuf.join_with buf
+    # end
+
+    # def flush
+    #   unless @wbuf.empty?
+    #     @transport.write(@wbuf)
+    #     @wbuf = Bytes.empty
+    #   end
+    #   @transport.flush
+    # end
+
+    # def io : IO
+    #   @transport.io
+    # end
 
     def to_s
       "buffered(#{@transport.to_s})"
