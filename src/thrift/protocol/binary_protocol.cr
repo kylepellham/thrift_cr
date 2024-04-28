@@ -26,7 +26,7 @@ module Thrift
         write_i32(seqid)
       else
         write_string(name)
-        write_byte(type.to_u8)
+        write_byte(type.to_i8)
         write_i32(seqid)
       end
     end
@@ -36,35 +36,35 @@ module Thrift
     end
 
     def write_field_begin(name : String, type : Types, id : Int16)
-      write_byte(type.to_u8)
+      write_byte(type.to_i8)
       write_i16(id)
     end
 
     def write_field_stop
-      write_byte(Thrift::Types::Stop.to_u8)
+      write_byte(Thrift::Types::Stop.to_i8)
     end
 
     def write_map_begin(ktype, vtype, size)
-      write_byte(ktype.to_u8)
-      write_byte(vtype.to_u8)
+      write_byte(ktype.to_i8)
+      write_byte(vtype.to_i8)
       write_i32(size)
     end
 
     def write_list_begin(etype, size)
-      write_byte(etype.to_u8)
+      write_byte(etype.to_i8)
       write_i32(size)
     end
 
     def write_set_begin(etype, size)
-      write_byte(etype.to_u8)
+      write_byte(etype.to_i8)
       write_i32(size)
     end
 
     def write_bool(bool)
-      write_byte(bool ? 1_u8 : 0_u8)
+      write_byte(bool ? 1_i8 : 0_i8)
     end
 
-    def write_byte(byte : UInt8)
+    def write_byte(byte : Int8)
       raw = Bytes.new(1, 0)
       byte_format.encode(byte, raw)
       trans.write(raw)
@@ -132,30 +132,30 @@ module Thrift
       nil
     end
 
-    def read_field_begin
+    def read_field_begin : Tuple(String, Thrift::Types, Int32)
       type = Types.from_value(read_byte)
       if (type == Types::Stop)
-        [nil, type, 0]
+        {"", type, 0}
       else
         id = read_i16
-        [nil, type, id]
+        {"", type, id}
       end
     end
 
-    def read_map_begin : Tuple(UInt8, UInt8, Int32)
-      ktype = read_byte
-      vtype = read_byte
+    def read_map_begin : Tuple(Thrift::Types, Thrift::Types, Int32)
+      ktype = Thrift::Types.from_value(read_byte)
+      vtype = Thrift::Types.from_value(read_byte)
       size = read_i32
       return ktype, vtype, size
     end
 
-    def read_list_begin : Tuple(UInt8, Int32)
-      etype = read_byte
+    def read_list_begin : Tuple(Thrift::Types, Int32)
+      etype = Thrift::Types.from_value(read_byte)
       size = read_i32
       return etype, size
     end
 
-    def read_set_begin : Tuple(UInt8, Int32)
+    def read_set_begin : Tuple(Thrift::Types, Int32)
       etype = read_byte
       size = read_i32
       return etype, size
@@ -197,13 +197,17 @@ module Thrift
     end
 
     def read_string : String
-      buffer = read_binary
+      size = read_i32
+      bytes = Bytes.new(size)
+      trans.read(bytes)
       String.new(buffer, "utf-8")
     end
 
-    def read_binary : Bytes
+    def read_binary : String
       size = read_i32
-      trans.read_all(size)
+      bytes = Bytes.new(size)
+      trans.read(bytes)
+      String.new(bytes)
     end
 
     def to_s

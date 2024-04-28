@@ -1,48 +1,5 @@
 require "./spec_helper.cr"
 
-enum TestEnum
-  TestValue1
-  TestValue2 = 25
-  TestValue3
-end
-
-class TestClass
-  include ::Thrift::Struct
-  @[::Thrift::Struct::Property(id: 1)]
-  property inst_var1 : Int32?
-  @[::Thrift::Struct::Property(id: 1)]
-  property req_inst_var : String?
-
-
-  def initialize(@inst_var1 = nil, @req_inst_var = nil)
-  end
-
-  def validate
-    raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN,
-                      "Required field req_inst_var is unset!") unless req_inst_var
-  end
-end
-
-class UnionTest
-  include ::Thrift::Union
-
-  @[::Thrift::Struct::Property(id: 1)]
-  union_property map : Hash(String, Int32)
-  @[::Thrift::Struct::Property(id: 2)]
-  union_property int : Int32
-  @[::Thrift::Struct::Property(id: 3)]
-  union_property string : String
-  @[::Thrift::Struct::Property(id: 4)]
-  union_property list : Array(Int32)
-
-  def initialize
-  end
-
-  def validate
-    raise "not set" unless union_set?
-  end
-end
-
 
 # helper to check list data
 def check_list_data(data_size, buffer, *expected)
@@ -63,9 +20,9 @@ describe ::Thrift::BinaryProtocol do
 
     describe "#write_message_begin" do
       it "strict writes" do
-        trans.clear
+        trans.reset_buffer
         strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
-        bytes = trans.read_all trans.available
+        bytes = trans.peek.not_nil!
         bytes[0..1].should eq(Bytes[128, 1]) # Bytes[128, 1] == 0x8001
         bytes[2..3].should eq(Bytes[0, 4]) # Bytes[0, 4] == 4 == MessageTypes::Oneway
         # size of string
@@ -75,9 +32,9 @@ describe ::Thrift::BinaryProtocol do
       end
 
       it "non-strict writes" do
-        trans.clear
+        trans.reset_buffer
         non_strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
-        bytes = trans.read_all trans.available
+        bytes = trans.peek.not_nil!
         bytes[0..3].should eq(Bytes[0, 0, 0, 4])
         bytes[4..7].should eq(Bytes[84, 101, 115, 116]) # Bytes[84, 101, 115, 116] == "Test"
         bytes[8].should eq(4) # 4 == 4 == MessageType::Oneway
@@ -88,15 +45,15 @@ describe ::Thrift::BinaryProtocol do
 
     describe "#write_byte" do
       it "writes Byte" do
-        binary_serializer.serialize(12_u8).should eq(Bytes[12])
+        binary_serializer.serialize(12_i8).should eq(Bytes[12])
       end
 
       it "writes max Byte" do
-        binary_serializer.serialize(UInt8::MAX).should eq(Bytes[255])
+        binary_serializer.serialize(Int8::MAX).should eq(Bytes[127])
       end
 
       it "writes min Byte" do
-        binary_serializer.serialize(UInt8::MIN).should eq(Bytes[0])
+        binary_serializer.serialize(Int8::MIN).should eq(Bytes[128])
       end
     end
 
@@ -180,18 +137,18 @@ describe ::Thrift::BinaryProtocol do
         size_index = 1
 
         it "writes empty List" do
-          bytes = binary_serializer.serialize([] of UInt8) #.should eq(Bytes[3, 0, 0, 0, 0])
-          bytes[type_index].should eq(::Thrift::Types::Byte.to_u8)
+          bytes = binary_serializer.serialize([] of Int8) #.should eq(Bytes[3, 0, 0, 0, 0])
+          bytes[type_index].should eq(::Thrift::Types::Byte.to_i8)
           bytes[size_index..(size_index + sizeof(Int32) - 1)].should eq(Bytes[0, 0, 0, 0])
         end
 
         it "writes List of Int8" do
-          test_data = [1_u8, 5_u8, 255_u8]
+          test_data = [1_i8, 5_i8, -128_i8]
           bytes = binary_serializer.serialize(test_data) #.should eq(Bytes[3, 0, 0, 0, 3, 1, 5, 255])
           size_end_index = size_index + sizeof(Int32) - 1
-          bytes[type_index].should eq(::Thrift::Types::Byte.to_u8)
+          bytes[type_index].should eq(::Thrift::Types::Byte.to_i8)
           bytes[size_index..size_end_index].should eq(Bytes[0, 0, 0, 3])
-          check_list_data(sizeof(UInt8), bytes, Bytes[1], Bytes[5], Bytes[255])
+          check_list_data(sizeof(UInt8), bytes, Bytes[1], Bytes[5], Bytes[128])
         end
 
         it "writes List of Int16" do
@@ -345,11 +302,11 @@ describe ::Thrift::BinaryProtocol do
 
     describe "writing struct" do
       it "writes populated field" do
-        binary_serializer.serialize(TestClass.new(24, "")).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 11, 0, 1, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new(24, "")).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 11, 0, 2, 0, 0, 0, 0, 0])
       end
 
       it "writes non populated field" do
-        binary_serializer.serialize(TestClass.new(nil, "")).should eq(Bytes[1, 0, 1, 11, 0, 1, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new(nil, "")).should eq(Bytes[1, 0, 1, 11, 0, 2, 0, 0, 0, 0, 0])
       end
 
       it "throws with non populated required field" do

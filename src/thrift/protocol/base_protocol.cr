@@ -18,87 +18,61 @@ module Thrift
     end
   end
 
-  class BaseProtocol
+  abstract class BaseProtocol
     getter trans : BaseTransport
 
     def initialize(@trans)
     end
 
-    def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
 
     def write_message_end
       nil
     end
 
-    def write_struct_begin(name)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_struct_begin(name)
 
     def write_struct_end
       nil
     end
 
-    def write_field_begin(name : String, type : Types, id : Int16)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_field_begin(name : String, type : Types, id : Int16)
 
     def write_field_end
       nil
     end
 
-    def write_field_stop
-      raise NotImplementedError.new ""
-    end
+    abstract def write_field_stop
 
-    def write_map_begin(ktype, vtype, size)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_map_begin(ktype, vtype, size)
 
     def write_map_end
       nil
     end
 
-    def write_list_begin(etype, size)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_list_begin(etype, size)
 
     def write_list_end
       nil
     end
 
-    def write_set_begin(etype, size)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_set_begin(etype, size)
 
     def write_set_end
       nil
     end
 
-    def write_bool(bool : Bool)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_bool(bool : Bool)
 
-    def write_byte(byte : Int8)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_byte(byte : Int8)
 
-    def write_i16(i16 : Int16)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_i16(i16 : Int16)
 
-    def write_i32(i32 : Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_i32(i32 : Int32)
 
-    def write_i64(i64 : Int64)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_i64(i64 : Int64)
 
-    def write_double(dub : Float64)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_double(dub : Float64)
 
     # Writes a Thrift String. In Crystal 1.5.2 and onward, the String passed will be transcoded to UTF-8.
     #
@@ -107,105 +81,73 @@ module Thrift
     # Raises EncodingError if the transcoding to UTF-8 fails.
     #
     # Returns nothing.
-    def write_string(str : String)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_string(str : String)
 
     # Writes a Thrift Binary (Thrift String with no encoding). In Crystal 1.5.2 and onward
     #
     # buf - The Bytes to write
     #
     # Returns nothing.
-    def write_binary(buf : Bytes)
-      raise NotImplementedError.new ""
-    end
+    abstract def write_binary(buf : Bytes)
 
-    def read_message_begin : Tuple(String, Thrift::MessageTypes, Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def read_message_begin : Tuple(String, Thrift::MessageTypes, Int32)
 
     def read_message_end
       nil
     end
 
-    def read_struct_begin
-      raise NotImplementedError.new ""
-    end
+    abstract def read_struct_begin
 
     def read_struct_end
       nil
     end
 
-    def read_field_begin : Tuple(String, Thrift::Types, Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def read_field_begin : Tuple(String, Thrift::Types, Int32)
 
     def read_field_end
       nil
     end
 
-    def read_map_begin : Tuple(Thrift::Type, Thrift::Type, Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def read_map_begin : Tuple(Thrift::Types, Thrift::Types, Int32)
 
     def read_map_end
       nil
     end
 
-    def read_list_begin : Tuple(Thrift::Type, Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def read_list_begin : Tuple(Thrift::Types, Int32)
 
     def read_list_end
       nil
     end
 
-    def read_set_begin : Tuple(Thrift::Type, Int32)
-      raise NotImplementedError.new ""
-    end
+    abstract def read_set_begin : Tuple(Thrift::Types, Int32)
 
     def read_set_end
       nil
     end
 
-    def read_bool : Bool
-      raise NotImplementedError.new ""
-    end
+    abstract def read_bool : Bool
 
-    def read_byte : Int8
-      raise NotImplementedError.new ""
-    end
+    abstract def read_byte : Int8
 
-    def read_i16 : Int16
-      raise NotImplementedError.new ""
-    end
+    abstract def read_i16 : Int16
 
-    def read_i32 : Int32
-      raise NotImplementedError.new ""
-    end
+    abstract def read_i32 : Int32
 
-    def read_i64 : Int64
-      raise NotImplementedError.new ""
-    end
+    abstract def read_i64 : Int64
 
-    def read_double : Float64
-      raise NotImplementedError.new ""
-    end
+    abstract def read_double : Float64
 
     # Reads a Thrift String. In Crystal 1.5.2 and onward, all Strings will be returned with an Encoding of UTF-8.
     #
     # Returns a String.
-    def read_string : String
-      raise NotImplementedError.new ""
-    end
+    abstract def read_string : String
 
     # Reads a Thrift Binary (Thrift String without encoding). In  Crystal 1.5.2 and onward, all Strings will be returned
     # with an Encoding of BINARY.
     #
     # Returns a String.
-    def read_binary : Bytes
-      raise NotImplementedError.new ""
-    end
+    abstract def read_binary : String
 
     def skip(type)
       case type

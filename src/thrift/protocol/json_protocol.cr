@@ -315,7 +315,7 @@ module Thrift
       reader.read_end_object
     end
 
-    def read_map_begin : Tuple(Thrift::Type, Thrift::Type, Int32)
+    def read_map_begin : Tuple(Thrift::Types, Thrift::Types, Int32)
       handle_read do
         reader.read_begin_array
         ktype = get_type_from_json_name(reader.read_string)
@@ -332,7 +332,7 @@ module Thrift
       reader.read_end_array
     end
 
-    def read_list_begin : Tuple(Thrift::Type, Int32)
+    def read_list_begin : Tuple(Thrift::Types, Int32)
       handle_read do
         reader.read_begin_array
         etype = get_type_from_json_name(reader.read_string)
@@ -348,7 +348,7 @@ module Thrift
       end
     end
 
-    def read_set_begin : Tuple(Thrift::Type, Int32)
+    def read_set_begin : Tuple(Thrift::Types, Int32)
       read_list_begin
     end
 
@@ -366,7 +366,7 @@ module Thrift
       end
     end
 
-    def read_i16
+    def read_i16 : Int16
       handle_read do
         reader.read_int.to_i16
       end
@@ -384,7 +384,7 @@ module Thrift
       end
     end
 
-    def read_double : String
+    def read_double : Float64
       handle_read do
         reader.read_float
       end
@@ -396,7 +396,7 @@ module Thrift
       end
     end
 
-    def read_binary : Bytes
+    def read_binary : String
       handle_read do
         Base64.decode(reader.read_string)
       end
