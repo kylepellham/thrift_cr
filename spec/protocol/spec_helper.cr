@@ -1,5 +1,5 @@
 require "spec"
-require "../src/thrift.cr"
+require "../../src/thrift.cr"
 
 
 enum TestEnum

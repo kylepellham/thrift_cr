@@ -82,7 +82,7 @@ module Thrift
       if pos >= @total_bytes
         nil
       else
-        val = @buf[@pos-1]
+        val = @buf[@pos]
         @pos += 1
         val
       end
