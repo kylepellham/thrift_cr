@@ -35,7 +35,7 @@ module Thrift
     end
 
     macro included
-      def process(iprot : BaseProtocol, oprot : BaseProtocol)
+      def process(iprot : Thrift::BaseProtocol, oprot : Thrift::BaseProtocol)
         name, type, seqid = iprot.read_message_begin
         if \{{@type.id}}.methods.includes?("process_#{name}")
           begin
@@ -64,13 +64,13 @@ module Thrift
         \{{@type.id}}.methods.includes?(method_check)
       end
 
-      def send(method : String, seqid : Int32, iprot : Thrift::BaseProtocol, oprot : Thrift::BaseProtocol)
+      def call(method : String, seqid : Int32, iprot : Thrift::BaseProtocol, oprot : Thrift::BaseProtocol)
         \{% begin %}
         case method
         \{% for method in @type.methods %}
           \{% if method.name.stringify[0.."process_".size - 1] == "process_" %}
         when "\{{method.name.id}}"["process_".size..-1]
-          \{{method.name}}(seqid, iprot, oprot)
+          {{method.name}}(seqid, iprot, oprot)
           \{% end %}
         \{% end %}
         else

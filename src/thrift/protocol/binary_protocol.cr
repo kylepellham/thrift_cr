@@ -9,11 +9,8 @@ module Thrift
     getter :strict_read, :strict_write
     getter byte_format : IO::ByteFormat
 
-    def initialize(trans, @strict_read = true, @strict_write = true, *, @byte_format = IO::ByteFormat::BigEndian)
+    def initialize(trans, @strict_read = true, @strict_write = true, *, @byte_format = IO::ByteFormat::NetworkEndian)
       super(trans)
-      # Pre-allocated read buffer for fixed-size read methods. Needs to be at least 8 bytes long for
-      # read_i64() and read_double().
-      @rbuf = Bytes.new(8, 0)
     end
 
     def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
@@ -65,33 +62,27 @@ module Thrift
     end
 
     def write_byte(byte : Int8)
-      raw = Bytes.new(1, 0)
-      byte_format.encode(byte, raw)
-      trans.write(raw)
+      trans.write_bytes(byte, byte_format)
     end
 
     def write_i16(i16 : Int16)
-      raw = Bytes.new(2, 0)
-      byte_format.encode(i16, raw)
-      trans.write(raw)
+      trans.write_bytes(i16, byte_format)
     end
 
     def write_i32(i32 : Int32)
-      raw = Bytes.new(4, 0)
-      byte_format.encode(i32, raw)
-      trans.write(raw)
+      trans.write_bytes(i32, byte_format)
     end
 
     def write_i64(i64 : Int64)
-      raw = Bytes.new(8, 0)
-      byte_format.encode(i64, raw)
-      trans.write(raw)
+      trans.write_bytes(i64, byte_format)
     end
 
     def write_double(dub : Float64)
-      raw = Bytes.new(8, 0)
-      byte_format.encode(dub, raw)
-      trans.write(raw)
+      trans.write_bytes(dub, byte_format)
+    end
+
+    def write_uuid(uuid : UUID)
+      trans.write(uuid.bytes.to_slice)
     end
 
     def write_string(str : String)
@@ -111,7 +102,7 @@ module Thrift
         if ((unsigned_version & VERSION_MASK) != VERSION_1)
           raise ProtocolException.new(ProtocolException::BAD_VERSION, "Missing version identifier")
         end
-        type = Thrift::MessageTypes.new(unsigned_version)
+        type = Thrift::MessageTypes.new(unsigned_version.unsafe_as)
         name = read_string
         seqid = read_i32
         return name, type, seqid
@@ -173,41 +164,39 @@ module Thrift
     end
 
     def read_i16 : Int16
-      bytes_read = trans.read(@rbuf)
-      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Int16)
-      val = byte_format.decode(Int16, @rbuf)
+      trans.read_bytes(Int16, byte_format)
     end
 
     def read_i32 : Int32
-      bytes_read = trans.read(@rbuf)
-      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Int32)
-      val = byte_format.decode(Int32, @rbuf)
+      trans.read_bytes(Int32, byte_format)
     end
 
     def read_i64 : Int64
-      bytes_read = trans.read(@rbuf)
-      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Int64)
-      val = byte_format.decode(Int64, @rbuf)
+      trans.read_bytes(Int64, byte_format)
     end
 
     def read_double : Float64
-      bytes_read = trans.read(@rbuf)
-      raise ProtocolException.new ProtocolException::INVALID_DATA, "Not enough Bytes to read" if bytes_read < sizeof(Float64)
-      val = byte_format.decode(Float64, @rbuf)
+      trans.read_bytes(Float64, byte_format)
+    end
+
+    def read_uuid : UUID
+      uuid_bytes = Bytes.new(16)
+      bytes_read = trans.read(uuid_bytes)
+      UUID.new uuid_bytes
     end
 
     def read_string : String
       size = read_i32
       bytes = Bytes.new(size)
       trans.read(bytes)
-      String.new(buffer, "utf-8")
+      String.new(bytes, "utf-8")
     end
 
-    def read_binary : String
+    def read_binary : Bytes
       size = read_i32
       bytes = Bytes.new(size)
       trans.read(bytes)
-      String.new(bytes)
+      bytes
     end
 
     def to_s

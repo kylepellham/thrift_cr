@@ -1,6 +1,12 @@
 require "./spec_helper.cr"
 
 describe Thrift::Socket do
+  it "initializes" do
+    port = unused_local_port
+    transport = Thrift::Socket.new("localhost", port)
+    transport.to_s.should eq "socket(localhost:#{port})"
+  end
+
   it "connects" do
     port = unused_local_port
     TCPServer.open("localhost", port) do |server|

@@ -10,10 +10,10 @@ end
 
 class TestClass
   include ::Thrift::Struct
-  @[::Thrift::Struct::Property(id: 1)]
-  property inst_var1 : Int32?
-  @[::Thrift::Struct::Property(id: 2)]
-  property req_inst_var : String?
+  @[::Thrift::Struct::Property(id: 1, req_in: false, req_out: false)]
+  struct_property inst_var1 : Int32
+  @[::Thrift::Struct::Property(id: 2, req_in: true, req_out: true)]
+  struct_property req_inst_var : String
 
 
   def initialize(@inst_var1 = nil, @req_inst_var = nil)
@@ -21,7 +21,7 @@ class TestClass
 
   def validate
     raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN,
-                      "Required field req_inst_var is unset!") unless req_inst_var
+                      "Required field req_inst_var is unset!") if @req_inst_var.nil?
   end
 end
 

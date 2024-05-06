@@ -12,6 +12,11 @@ def check_list_data(data_size, buffer, *expected)
 end
 
 describe ::Thrift::BinaryProtocol do
+  it "initializes" do
+    transport = Thrift::MemoryBufferTransport.new
+    bprot = Thrift::BinaryProtocol.new(transport)
+  end
+
   describe "Big Endian Encoded" do
     binary_serializer = ::Thrift::Serializer.new(::Thrift::BinaryProtocolFactory.new IO::ByteFormat::BigEndian)
     trans = ::Thrift::MemoryBufferTransport.new
@@ -128,6 +133,22 @@ describe ::Thrift::BinaryProtocol do
 
       it "write non printable character" do
         binary_serializer.serialize("�").should eq(Bytes[0, 0, 0, 3, 239, 191, 189])
+      end
+    end
+
+    describe "#write_uuid" do
+      it "writes empty uuid" do
+        binary_serializer.serialize(UUID.empty).should eq UUID.empty.bytes.to_slice
+      end
+    end
+
+    describe "#write_binary" do
+      it "write empty slice" do
+        binary_serializer.serialize(Bytes[]).should eq Bytes[0, 0, 0, 0]
+      end
+
+      it "writes several bytes" do
+        binary_serializer.serialize(Bytes[1, 2, 3]).should eq Bytes[0, 0, 0, 3, 1, 2, 3]
       end
     end
 
@@ -310,7 +331,7 @@ describe ::Thrift::BinaryProtocol do
       end
 
       it "throws with non populated required field" do
-        expect_raises(Exception) do
+        expect_raises(Thrift::ProtocolException, "Required field req_inst_var is unset!") do
           binary_serializer.serialize(TestClass.new(nil, nil))
         end
       end

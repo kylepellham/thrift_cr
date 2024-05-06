@@ -3,6 +3,11 @@ require "../../src/thrift.cr"
 
 
 describe Thrift::MemoryBufferTransport do
+  it "initializes" do
+    buffer = Thrift::MemoryBufferTransport.new
+    buffer.to_s.should eq "memory"
+  end
+
   it "writes" do
     buffer = Thrift::MemoryBufferTransport.new
     buffer.write("hello world".to_slice)

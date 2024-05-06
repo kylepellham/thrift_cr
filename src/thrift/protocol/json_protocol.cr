@@ -252,6 +252,12 @@ module Thrift
       end
     end
 
+    def write_uuid(uuid : UUID)
+      handle_write do
+        writer.string uuid
+      end
+    end
+
     def write_string(str : String)
       handle_write do
         writer.scalar(str)
@@ -390,18 +396,23 @@ module Thrift
       end
     end
 
+    def read_uuid : UUID
+      handle_read do
+        UUID.new reader.read_string
+      end
+    end
+
     def read_string : String
       handle_read do
         reader.read_string
       end
     end
 
-    def read_binary : String
+    def read_binary : Bytes
       handle_read do
         Base64.decode(reader.read_string)
       end
     end
-
   end
 
   class JsonProtocolFactory < BaseProtocolFactory

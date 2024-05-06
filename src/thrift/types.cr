@@ -13,6 +13,7 @@ module Thrift
     Map    = 13
     Set    = 14
     List   = 15
+    Uuid   = 16
   end
 
   enum MessageTypes : Int8
