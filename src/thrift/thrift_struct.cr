@@ -7,28 +7,23 @@ module Thrift
     end
 
     macro struct_property(name)
-      {% if name.is_a?(TypeDeclaration) %}
-        {% if name.value %}
-          @{{name.var.id}} : {{name.type.id}}? = {{name.value}}
-        {% else %}
-          @{{name.var.id}} : {{name.type.id}}?
-        {% end %}
-
-        def {{name.var.id}}
-          \{% if var = @type.instance_vars.find{|var| var.name.stringify == {{name.var.stringify}} }  &&
-                  var.annotation(Thrift::Struct::Property)[:req_in]%}
-            @{{name.var.id}}.not_nil!
-          \{% else %}
-            @{{name.var.id}}
-          \{% end %}
-        end
-
-        def {{name.var.id}}=({{name.var.id}}_ : {{name.type.id}})
-          @{{name.var.id}} = {{name.var.id}}_
-        end
-      {% else %}
-        {{raise "thrift_property is for non union type structs only i.e thrift_struct x : Int32"}}
+      {% if !name.type.is_a?(Union) && name.value %}
+        {{raise "Required fields do not have default values"}}
+      {% else if name.type.is_a?(Union) && name.type.types.size > 2 && !name.type.types.any?(&.stringify.==("::Nil"))%}
+        {{raise "only can pass in a single nilable type"}}
       {% end %}
+      @{{name}}
+
+      def {{name.var.id}}
+        @{{name.var.id}}
+      end
+
+      def {{name.var.id}}=(@{{name.var.id}} : {{name.type.id}})
+        # this means that the field is required
+        {% if !name.type.is_a?(Union) %}
+          @required_fields[{{name.var.stringify}}] = true
+        {% end %}
+      end
     end
 
     private macro generate_writer
@@ -89,18 +84,7 @@ module Thrift
     macro included
       {% verbatim do %}
         define_thrift_type ::Thrift::Types::Struct
-        generate_writer
-        generate_reader
       {% end %}
-
-      def validate
-        {% for var in @type.instance_vars %}
-          {% if var.annotation(Thrift::Struct::Property)[:in_req] %}
-            raise Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN,
-                                                "Required field {{var.name}} is unset") if {{var.name.id}}.nil?
-          {% end %}
-        {% end %}
-      end
     end
   end
 end

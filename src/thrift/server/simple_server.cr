@@ -8,9 +8,12 @@ module Thrift
     def serve
       begin
         @server_transport.listen
+        puts "1"
         loop do
+          puts 2
           client = @server_transport.accept
           if client
+            puts 3
             trans = @transport_factory.get_transport(client)
             prot = @protocol_factory.get_protocol(trans)
             begin

@@ -70,7 +70,7 @@ module Thrift
         \{% for method in @type.methods %}
           \{% if method.name.stringify[0.."process_".size - 1] == "process_" %}
         when "\{{method.name.id}}"["process_".size..-1]
-          {{method.name}}(seqid, iprot, oprot)
+          \{{method.name}}(seqid, iprot, oprot)
           \{% end %}
         \{% end %}
         else
