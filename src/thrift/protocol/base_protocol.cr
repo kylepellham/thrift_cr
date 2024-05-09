@@ -28,15 +28,16 @@ module Thrift
     def read_recursion(&)
       @read_recursion += 1
       raise ProtocolException.new ProtocolException::DEPTH_LIMIT, "reached max read depth of #{ProtocolException::DEPTH_LIMIT}" if @read_recursion >= RECURSION_LIMIT
-      res = yield self
+      yield self
+    ensure
       @read_recursion -= 1
-      res
     end
 
     def write_recursion(&)
       @write_recursion += 1
       raise ProtocolException.new ProtocolException::DEPTH_LIMIT, "reached max write depth of #{ProtocolException::DEPTH_LIMIT}" if @write_recursion >= RECURSION_LIMIT
       yield self
+    ensure
       @write_recursion -= 1
     end
 

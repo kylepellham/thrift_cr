@@ -3,6 +3,7 @@ require "./helpers.cr"
 
 module Thrift
   module Struct
+    include BaseThriftType
     annotation Property
     end
 
@@ -21,7 +22,7 @@ module Thrift
       def {{name.var.id}}=(@{{name.var.id}} : {{name.type.id}})
         # this means that the field is required
         {% if !name.type.is_a?(Union) %}
-          @required_fields[{{name.var.stringify}}] = true
+          @required_fields[{{name.var.stringify}}] = :set
         {% end %}
       end
     end

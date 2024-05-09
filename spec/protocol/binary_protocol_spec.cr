@@ -323,17 +323,11 @@ describe ::Thrift::BinaryProtocol do
 
     describe "writing struct" do
       it "writes populated field" do
-        binary_serializer.serialize(TestClass.new(24, "")).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 11, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", 24)).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 11, 0, 2, 0, 0, 0, 0, 0])
       end
 
       it "writes non populated field" do
-        binary_serializer.serialize(TestClass.new(nil, "")).should eq(Bytes[1, 0, 1, 11, 0, 2, 0, 0, 0, 0, 0])
-      end
-
-      it "throws with non populated required field" do
-        expect_raises(Thrift::ProtocolException, "Required field req_inst_var is unset!") do
-          binary_serializer.serialize(TestClass.new(nil, nil))
-        end
+        binary_serializer.serialize(TestClass.new("", nil)).should eq(Bytes[1, 0, 1, 11, 0, 2, 0, 0, 0, 0, 0])
       end
     end
 

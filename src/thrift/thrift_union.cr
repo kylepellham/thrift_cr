@@ -2,6 +2,7 @@ require "./thrift_struct.cr"
 
 module Thrift
   module Union
+    include BaseThriftType
     annotation UnionVar
     end
 
@@ -26,17 +27,17 @@ module Thrift
 
     private macro generate_union_reader
       def self.read(iprot : ::Thrift::BaseProtocol)
-        recieved_union = \{{@type}}.new
+        recieved_union = \{{@type}}.allocate
         iprot.read_struct_begin
         loop do
-          name, type, fid = iprot.read_field_begin
-          break if type == ::Thrift::Types::Stop
+          name, ftype, fid = iprot.read_field_begin
+          break if ftype == ::Thrift::Types::Stop
           raise "Too Many fields for Union" if union_set?
           \{% begin %}
-          case fid
+          case {fid, ftype}
             \{% for var in @type.methods.select(&.annotation(UnionVar)) %}
-              when  \{{var.annotation(::Thrift::Struct::Property)[:id]}}
-                recieved_struct.\{{var.name}} = \{{var.return_type}}.read(iprot)
+              when  {\{{var.annotation(::Thrift::Struct::Property)[:id]}}, \{{var.return_type.id}}.thrift_type}
+                recieved_struct.\{{var.name}} = \{{var.return_type}}.read from: iprot
             \{% end %}
           end
           \{% end %}
@@ -51,8 +52,8 @@ module Thrift
 
     macro included
       {% verbatim do %}
-        generate_union_writer
-        generate_union_reader
+        # generate_union_writer
+        # generate_union_reader
         macro finished
           \{% begin %}
             \{%

@@ -22,4 +22,7 @@ module Thrift
     Exception = 3
     Oneway    = 4
   end
+
+  module BaseThriftType
+  end
 end
