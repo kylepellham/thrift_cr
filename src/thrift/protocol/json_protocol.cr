@@ -9,34 +9,34 @@ module Thrift
 
     # if we haven't read before create a pullparser and try again
     # use "reader" to access the pullparser
-    private macro handle_read(&)
+    private def handle_read(&)
       if reader = @reader
-        {{yield}}
+        yield reader
       else
-        @reader = JSON::PullParser.new(@trans)
-        \{{@def.name}}
+        reader = @reader = JSON::PullParser.new(@trans)
+        yield reader
       end
     end
 
-    private macro handle_write_begin(&)
+    private def handle_write_begin(&)
       if @started_documents < 1
-        writer.start_document
+        @writer.start_document
       end
       @started_documents += 1
-      {{yield}}
+      yield @writer
       nil
     end
 
-    private macro handle_write_end(&)
-      {{yield}}
+    private def handle_write_end(&)
+      yield @writer
       if @started_documents < 2
-        writer.end_document
+        @writer.end_document
       end
       @started_documents -= 1
       nil
     end
 
-    getter writer : JSON::Builder
+    @writer : JSON::Builder
     @reader : JSON::PullParser?
     @started_documents = 0
     def initialize(trans)
@@ -45,14 +45,14 @@ module Thrift
       @writer = JSON::Builder.new(trans)
     end
 
-    private macro handle_write(&)
+    private def handle_write(&)
       if @started_documents < 1
-        writer.start_document
+        @writer.start_document
       end
       @started_documents += 1
-      ret = {{yield}}
+      ret = yield @writer
       if @started_documents < 2
-        writer.end_document
+        @writer.end_document
       end
       @started_documents -= 1
       ret
@@ -132,7 +132,7 @@ module Thrift
     end
 
     def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
-      handle_write_begin do
+      handle_write_begin do |writer|
         writer.start_array
         writer.number(THRIFT_VERSION1)
         writer.string(name)
@@ -142,25 +142,25 @@ module Thrift
     end
 
     def write_message_end
-      handle_write_end do
+      handle_write_end do |writer|
         writer.end_array
       end
     end
 
     def write_struct_begin(name)
-      handle_write_begin do
+      handle_write_begin do |writer|
         writer.start_object
       end
     end
 
     def write_struct_end
-      handle_write_end do
+      handle_write_end do |writer|
         writer.end_object
       end
     end
 
     def write_field_begin(name : String, type : Thrift::Types, id : Int16)
-      handle_write_begin do
+      handle_write_begin do |writer|
         writer.string(id)
         writer.start_object
         writer.string(get_json_name_from_type(type))
@@ -168,7 +168,7 @@ module Thrift
     end
 
     def write_field_end
-      handle_write_end do
+      handle_write_end do |writer|
         writer.end_object
       end
     end
@@ -178,7 +178,7 @@ module Thrift
     end
 
     def write_map_begin(ktype, vtype, size)
-      handle_write_begin do
+      handle_write_begin do |writer|
         writer.start_array
         writer.string(get_json_name_from_type(ktype))
         writer.string(get_json_name_from_type(vtype))
@@ -188,14 +188,14 @@ module Thrift
     end
 
     def write_map_end
-      handle_write_end do
+      handle_write_end do |writer|
         writer.end_object
         writer.end_array
       end
     end
 
     def write_list_begin(etype, size)
-      handle_write_begin do
+      handle_write_begin do |writer|
         writer.start_array
         writer.string(get_json_name_from_type(etype))
         writer.number(size)
@@ -203,7 +203,7 @@ module Thrift
     end
 
     def write_list_end
-      handle_write_end do
+      handle_write_end do |writer|
         writer.end_array
       end
     end
@@ -217,61 +217,61 @@ module Thrift
     end
 
     def write_bool(bool : Bool)
-      handle_write do
+      handle_write do |writer|
         writer.number(bool ? 1 : 0)
       end
     end
 
     def write_byte(byte : Int8)
-      handle_write do
+      handle_write do |writer|
         writer.number(byte)
       end
     end
 
     def write_i16(i16 : Int16)
-      handle_write do
+      handle_write do |writer|
         writer.number(i16)
       end
     end
 
     def write_i32(i32 : Int32)
-      handle_write do
+      handle_write do |writer|
         writer.number(i32)
       end
     end
 
     def write_i64(i64 : Int64)
-      handle_write do
+      handle_write do |writer|
         writer.number(i64)
       end
     end
 
     def write_double(dub : Float64)
-      handle_write do
+      handle_write do |writer|
         writer.number(dub)
       end
     end
 
     def write_uuid(uuid : UUID)
-      handle_write do
+      handle_write do |writer|
         writer.string uuid
       end
     end
 
     def write_string(str : String)
-      handle_write do
+      handle_write do |writer|
         writer.scalar(str)
       end
     end
 
     def write_binary(buf : Bytes)
-      handle_write do
+      handle_write do |writer|
         writer.scalar(Base64.encode(buf))
       end
     end
 
     def read_message_begin : Tuple(String, Thrift::MessageTypes, Int32)
-      handle_read do
+      handle_read do |reader|
         reader.read_begin_array
         version = reader.read_int
         if version != THRIFT_VERSION1
@@ -286,12 +286,12 @@ module Thrift
     end
 
     def read_message_end
-      reader.read_end_array
+      @reader.try(&.read_end_array)
       nil
     end
 
     def read_struct_begin
-      handle_read do
+      handle_read do |reader|
         reader.read_begin_object
       end
     end
@@ -302,7 +302,7 @@ module Thrift
     end
 
     def read_field_begin : Tuple(String, Thrift::Types, Int32)
-      handle_read do
+      handle_read do |reader|
         kind = reader.kind
         if kind == JSON::PullParser::Kind::EndObject
           fid = 0
@@ -318,15 +318,15 @@ module Thrift
     end
 
     def read_field_end
-      reader.read_end_object
+      @reader.try(&.read_end_object)
     end
 
     def read_map_begin : Tuple(Thrift::Types, Thrift::Types, Int32)
-      handle_read do
+      handle_read do |reader|
         reader.read_begin_array
         ktype = get_type_from_json_name(reader.read_string)
         vtype = get_type_from_json_name(reader.read_string)
-        size = reader.read_int
+        size = reader.read_int.to_i32
         reader.read_begin_object
 
         return ktype, vtype, size
@@ -334,12 +334,12 @@ module Thrift
     end
 
     def read_map_end
-      reader.read_end_object
-      reader.read_end_array
+      @reader.try(&.read_end_object)
+      @reader.try(&.read_end_array)
     end
 
     def read_list_begin : Tuple(Thrift::Types, Int32)
-      handle_read do
+      handle_read do |reader|
         reader.read_begin_array
         etype = get_type_from_json_name(reader.read_string)
         size = reader.read_int.to_i32
@@ -349,9 +349,7 @@ module Thrift
     end
 
     def read_list_end
-      handle_read do
-        reader.read_end_array
-      end
+      @reader.try(&.read_end_array)
     end
 
     def read_set_begin : Tuple(Thrift::Types, Int32)
@@ -367,49 +365,49 @@ module Thrift
     end
 
     def read_byte : Int8
-      handle_read do
+      handle_read do |reader|
         reader.read_int.to_i8
       end
     end
 
     def read_i16 : Int16
-      handle_read do
+      handle_read do |reader|
         reader.read_int.to_i16
       end
     end
 
     def read_i32 : Int32
-      handle_read do
+      handle_read do |reader|
         reader.read_int.to_i32
       end
     end
 
     def read_i64 : Int64
-      handle_read do
+      handle_read do |reader|
         reader.read_int
       end
     end
 
     def read_double : Float64
-      handle_read do
+      handle_read do |reader|
         reader.read_float
       end
     end
 
     def read_uuid : UUID
-      handle_read do
+      handle_read do |reader|
         UUID.new reader.read_string
       end
     end
 
     def read_string : String
-      handle_read do
+      handle_read do |reader|
         reader.read_string
       end
     end
 
     def read_binary : Bytes
-      handle_read do
+      handle_read do |reader|
         Base64.decode(reader.read_string)
       end
     end

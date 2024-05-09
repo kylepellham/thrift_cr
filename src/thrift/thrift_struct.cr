@@ -9,7 +9,7 @@ module Thrift
     macro struct_property(name)
       {% if !name.type.is_a?(Union) && name.value %}
         {{raise "Required fields do not have default values"}}
-      {% else if name.type.is_a?(Union) && name.type.types.size > 2 && !name.type.types.any?(&.stringify.==("::Nil"))%}
+      {% elsif name.type.is_a?(Union) && name.type.types.size > 2 && !name.type.types.any?(&.stringify.==("::Nil"))%}
         {{raise "only can pass in a single nilable type"}}
       {% end %}
       @{{name}}
@@ -63,7 +63,7 @@ module Thrift
             \{% if var.type.union_types.size < 3 %}
               \{% type = var.type.union_types.find { |type| type.stringify != "Nil" } %}
             \{% else %}
-              \{{raise "Union too large for thrift struct. Nilable types only"}}
+              \{{raise "Union too large for thrift struct. Sing Nilable types only"}}
             \{% end %}
             # \{{puts var.annotation(::Thrift::Struct::Property)[:id].id}}
             when \{{var.annotation(::Thrift::Struct::Property)[:id].id}}

@@ -99,6 +99,9 @@ module Thrift
         def {{name.var.id}}=({{name.var.id}}_val : {{name.type.id}})
           @storage = {{name.var.id}}_val
         end
+        def is_{{name.var.id}}
+          @storage.is_a?({{name.type.id}})
+        end
       {% else %}
         {{ raise "Needs to be Type Declaration ex: union_property x : Int32" }}
       {% end %}
