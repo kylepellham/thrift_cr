@@ -102,7 +102,7 @@ module Thrift
         if ((unsigned_version & VERSION_MASK) != VERSION_1)
           raise ProtocolException.new(ProtocolException::BAD_VERSION, "Missing version identifier")
         end
-        type = Thrift::MessageTypes.new(unsigned_version.unsafe_as)
+        type = Thrift::MessageTypes.new(unsigned_version.unsafe_as(Int8))
         name = read_string
         seqid = read_i32
         return name, type, seqid
@@ -123,10 +123,10 @@ module Thrift
       nil
     end
 
-    def read_field_begin : Tuple(String, Thrift::Types, Int32)
+    def read_field_begin : Tuple(String, Thrift::Types, Int16)
       type = Types.from_value(read_byte)
       if (type == Types::Stop)
-        {"", type, 0}
+        {"", type, 0_i16}
       else
         id = read_i16
         {"", type, id}
@@ -147,7 +147,7 @@ module Thrift
     end
 
     def read_set_begin : Tuple(Thrift::Types, Int32)
-      etype = read_byte
+      etype = Thrift::Types.new(read_byte)
       size = read_i32
       return etype, size
     end

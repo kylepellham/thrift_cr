@@ -23,6 +23,33 @@ module Thrift
     Oneway    = 4
   end
 
-  module BaseThriftType
+  module Type
+    module Write
+      abstract def write(to oprot : ::Thrift::BaseProtocol)
+    end
+
+    module Read
+      abstract def read(from iprot : ::Thrift::BaseProtocol)
+    end
+
+    module ClassRead
+      def read(from iprot : ::Thrift::BaseProtocol)
+        obj = self.allocate
+        obj.tap(&.read from: iprot)
+      end
+    end
+
+    macro define_thrift_type(thrift_type)
+      THRIFT_TYPE = {{thrift_type.id}}
+    end
+
+    macro included
+      {% verbatim do %}
+      {% end %}
+    end
+
+    macro extended
+      {{raise "can only include ::Thrift::Type"}}
+    end
   end
 end

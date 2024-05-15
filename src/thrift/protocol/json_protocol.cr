@@ -16,43 +16,54 @@ module Thrift
         reader = @reader = JSON::PullParser.new(@trans)
         yield reader
       end
+    rescue ex
+      @reader = nil
+      raise ex
     end
 
     private def handle_write_begin(&)
+      p! @trans.open?
+      writer = @writer || JSON::Builder.new(@trans)
+      @writer = writer
+
       if @started_documents < 1
-        @writer.start_document
+        writer.start_document
       end
+      p! @writer == writer
       @started_documents += 1
-      yield @writer
+      yield writer
       nil
     end
 
     private def handle_write_end(&)
-      yield @writer
+      writer = @writer || JSON::Builder.new(@trans)
+      @writer = writer
+      yield writer
       if @started_documents < 2
-        @writer.end_document
+        writer.end_document
       end
       @started_documents -= 1
       nil
     end
 
-    @writer : JSON::Builder
+    @writer : JSON::Builder?
     @reader : JSON::PullParser?
     @started_documents = 0
     def initialize(trans)
       super(trans)
-      # we get to take advantage of the fact transport inherits from IO for this
-      @writer = JSON::Builder.new(trans)
     end
 
     private def handle_write(&)
+      writer = @writer || JSON::Builder.new(@trans)
+      @writer = writer
+
       if @started_documents < 1
-        @writer.start_document
+        writer.start_document
       end
       @started_documents += 1
-      ret = yield @writer
+      ret = yield writer
       if @started_documents < 2
-        @writer.end_document
+        writer.end_document
       end
       @started_documents -= 1
       ret
@@ -297,18 +308,18 @@ module Thrift
     end
 
     def read_struct_end
-      reader.read_end_object
+      @reader.try(&.read_end_object)
       nil
     end
 
-    def read_field_begin : Tuple(String, Thrift::Types, Int32)
+    def read_field_begin : Tuple(String, Thrift::Types, Int16)
       handle_read do |reader|
         kind = reader.kind
         if kind == JSON::PullParser::Kind::EndObject
-          fid = 0
+          fid = 0_i16
           ftype = Types::Stop
         else
-          fid = reader.read_int.to_i32
+          fid = reader.read_int.to_i16
           reader.read_begin_object
           temp = reader.read_string
           ftype = get_type_from_json_name(temp)

@@ -3,8 +3,24 @@ require "./helpers.cr"
 
 module Thrift
   module Struct
-    include BaseThriftType
+
     annotation Property
+    end
+
+    macro def_comp
+      def <=>(other : self)
+        {% for var in @type.instance_vars %}
+        if @{{var.name.id}}.nil? && !other.@{{var.name.id}}.nil?
+          return 1
+        elsif !@{{var.name.id}}.nil? && other.@{{var.name.id}}.nil?
+          return -1
+        else
+          cmp = @{{var.name.id}} <=> other.@{{var.name.id}}
+          return cmp if cmp != 0
+        end
+        {% end %}
+        0
+      end
     end
 
     macro struct_property(name)
@@ -22,7 +38,7 @@ module Thrift
       def {{name.var.id}}=(@{{name.var.id}} : {{name.type.id}})
         # this means that the field is required
         {% if !name.type.is_a?(Union) %}
-          @required_fields[{{name.var.stringify}}] = :set
+          @__required_fields__\{{@type.name.id}}_set[{{name.var.stringify}}] = true
         {% end %}
       end
     end
@@ -84,7 +100,13 @@ module Thrift
 
     macro included
       {% verbatim do %}
+        include Comparable(self)
+        include ::Thrift::Type
+        include ::Thrift::Type::Read
+        extend ::Thrift::Type::ClassRead
         define_thrift_type ::Thrift::Types::Struct
+        def_equals_and_hash
+        def_comp
       {% end %}
     end
   end

@@ -28,13 +28,13 @@ class TestClass
     oprot.write_struct_begin("TestClass")
 
     @inst_var1.try do |inst_var1|
-      oprot.write_field_begin("inst_var1", Int32.thrift_type, 1_16)
+      oprot.write_field_begin("inst_var1", Int32.thrift_type, 1_i16)
       inst_var1.write to: oprot
       oprot.write_field_end
     end
 
     @req_inst_var.try do |req_inst_var|
-      oprot.write_field_begin("req_inst_var", Int32.thrift_type, 2_16)
+      oprot.write_field_begin("req_inst_var", String.thrift_type, 2_i16)
       req_inst_var.write to: oprot
       oprot.write_field_end
     end
@@ -42,18 +42,17 @@ class TestClass
     oprot.write_field_stop
     oprot.write_struct_end
   end
+
+  def self.read(from iprot : ::Thrift::BaseProtocol)
+  end
 end
 
 class UnionTest
   include ::Thrift::Union
 
-  @[::Thrift::Struct::Property(id: 1)]
   union_property map : Hash(String, Int32)
-  @[::Thrift::Struct::Property(id: 2)]
   union_property int : Int32
-  @[::Thrift::Struct::Property(id: 3)]
   union_property string : String
-  @[::Thrift::Struct::Property(id: 4)]
   union_property list : Array(Int32)
 
   def initialize
@@ -85,5 +84,8 @@ class UnionTest
     end
     oprot.write_field_stop
     oprot.write_struct_end
+  end
+
+  def self.read(from iprot : ::Thrift::BaseProtocol)
   end
 end

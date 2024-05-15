@@ -2,7 +2,7 @@ require "socket"
 require "./base_transport.cr"
 
 module Thrift
-  class Socket < BaseTransport
+  class SocketTransport < BaseTransport
 
     def initialize(@host = "localhost", @port = 9090, @timeout : Int32? = nil)
       @desc = "#{@host}:#{@port}"

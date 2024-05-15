@@ -4,7 +4,9 @@ require "../protocol/base_protocol.cr"
 require "../processor.cr"
 
 module Thrift
-  class BaseServer
+  abstract class BaseServer
+    getter interrupt_ch : Channel(Bool) = Channel(Bool).new
+
     @processor : Thrift::Processor
     @server_transport : Thrift::BaseServerTransport
     @protocol_factory : Thrift::BaseProtocolFactory
@@ -17,9 +19,7 @@ module Thrift
       @protocol_factory = protocol_factory ? protocol_factory : Thrift::BinaryProtocolFactory.new
     end
 
-    def serve
-      raise NotImplementedError.new ""
-    end
+    abstract def serve
 
     def to_s
       "server(#{@protocol_factory.to_s}(#{@transport_factory.to_s}(#{@server_transport.to_s})))"

@@ -1,5 +1,9 @@
 module Thrift
   class ApplicationException < Exception
+    include ::Thrift::Type
+    include ::Thrift::Type::Read
+    extend ::Thrift::Type::ClassRead
+
     UNKNOWN                 =  0
     UNKNOWN_METHOD          =  1
     INVALID_MESSAGE_TYPE    =  2
@@ -19,35 +23,36 @@ module Thrift
       @type = type
     end
 
-    def read(iprot)
+    def read(from iprot : ::Thrift::BaseProtocol)
       iprot.read_struct_begin
       while true
         fname, ftype, fid = iprot.read_field_begin
-        if ftype == Types::Stop
-          break
-        end
-        if fid == 1 && ftype == Types::String
-          @message = iprot.read_string
-        elsif fid == 2 && ftype == Types::I32
-          @type = iprot.read_i32
+        break if ftype == Types::Stop
+        case {fid, ftype}
+        when {1, String.thrift_type}
+          @message = String.read from: iprot
+        when {2, Int32.thrift_type}
+          @type = Int32.read from: iprot
         else
           iprot.skip(ftype)
         end
         iprot.read_field_end
       end
       iprot.read_struct_end
+      ret
     end
 
-    def write(oprot : BaseProtocol)
+    def write(to oprot : ::Thrift::BaseProtocol)
       oprot.write_struct_begin("Thrift::ApplicationException")
-      if message = @message
-        oprot.write_field_begin("message", Types::String, 1_i16)
-        oprot.write_string(message)
+      @message.try do |message|
+        oprot.write_field_begin("message", String.thrift_type, 1_i16)
+        message.write to: oprot
         oprot.write_field_end
       end
-      if type = @type
-        oprot.write_field_begin("type", Types::I32, 2_i16)
-        oprot.write_i32(type)
+
+      @type.try do |type|
+        oprot.write_field_begin("type", Int32.thrift_type, 2_i16)
+        type.write to: oprot
         oprot.write_field_end
       end
       oprot.write_field_stop

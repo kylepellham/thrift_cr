@@ -1,19 +1,23 @@
 module Thrift
-  class BaseServerTransport
-    def listen
-      raise NotImplementedError.new ""
-    end
+  abstract class BaseServerTransport
+    abstract def listen
 
-    def accept
-      raise NotImplementedError.new ""
+    abstract def accept?
+
+    abstract def closed?
+
+    def accept(&)
+      if client = accept?
+        begin
+          yield client
+        ensure
+          client.close
+        end
+      end
     end
 
     def close
       nil
-    end
-
-    def closed?
-      raise NotImplementedError.new ""
     end
   end
 end

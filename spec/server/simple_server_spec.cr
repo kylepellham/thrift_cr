@@ -14,9 +14,19 @@ describe Thrift::SimpleServer do
     processor = TestProcessor.new TestHandler.new
     server = Thrift::SimpleServer.new(processor, server_transport)
     spawn do
-      TCPSocket.open("localhost", port) do |sock|
-      end
+      server.serve
     end
-    server.serve
+    Fiber.yield
+
+    sock = ::Thrift::SocketTransport.new("localhost", port)
+    protocol = ::Thrift::BinaryProtocol.new(sock)
+    sock.open
+
+    protocol.write_message_begin("test", ::Thrift::MessageTypes::Call, 1)
+    protocol.write_message_end
+    Fiber.yield
+    protocol.read_message_begin.should eq({"Test", ::Thrift::MessageTypes::Reply, 1})
+    result = Test_result.read(from: protocol).should eq(Test_result.new result: "hello")
+    protocol.read_message_end
   end
 end

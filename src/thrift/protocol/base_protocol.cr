@@ -21,7 +21,7 @@ module Thrift
   end
 
   abstract class BaseProtocol
-    RECURSION_LIMIT = 512
+    RECURSION_LIMIT = 64
     @read_recursion = 0
     @write_recursion = 0
 
@@ -126,7 +126,7 @@ module Thrift
       nil
     end
 
-    abstract def read_field_begin : Tuple(String, Thrift::Types, Int32)
+    abstract def read_field_begin : Tuple(String, Thrift::Types, Int16)
 
     def read_field_end
       nil
@@ -240,18 +240,12 @@ module Thrift
   end
 end
 
-# this is where we inject thrifty-ness into crystal
-macro define_thrift_type(thrift_type)
-  def self.thrift_type
-    {{thrift_type}}
-  end
 
-  def thrift_type
-    \{{@type}}.thrift_type
-  end
-end
+# this is where we inject thrifty-ness into crystal
 
 struct Nil
+  include ::Thrift::Type
+
   define_thrift_type ::Thrift::Types::Void
 
   # we only need a write to accomidate nilable types
@@ -264,116 +258,126 @@ struct Nil
 end
 
 struct Bool
+  include ::Thrift::Type
+
   define_thrift_type ::Thrift::Types::Bool
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_bool(self))
+    oprot.write_bool(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_bool)
+    iprot.read_bool
   end
 end
 
 struct Int8 # AKA Byte
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::Byte
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_byte(self))
+    oprot.write_byte(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_byte)
+    iprot.read_byte
   end
 end
 
 struct Int16
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::I16
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_i16(self))
+    oprot.write_i16(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_i16)
+    iprot.read_i16
   end
 end
 
 struct Int32
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::I32
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_i32(self))
+    oprot.write_i32(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_i32)
+    iprot.read_i32
   end
 end
 
 struct Int64
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::I64
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_i64(self))
+    oprot.write_i64(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_i64)
+    iprot.read_i64
   end
 end
 
 struct Float64
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::Double
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_double(self))
+    oprot.write_double(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_double)
+    iprot.read_double
   end
 end
 
 struct UUID
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::Uuid
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_uuid(self))
+    oprot.write_uuid(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_uuid)
+    iprot.read_uuid
   end
 end
 
 class String
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::String
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_string(self))
+    oprot.write_string(self)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    iprot.read_recursion(&.read_string)
+    iprot.read_string
   end
 end
 
 # Bytes is aliased as Slice(UInt8) so we throw on any slice that isn't bytes
 struct Slice(T)
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::String
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    {% if @type.type_vars.size < 2 && @type.type_vars[0].name.stringify == "UInt8" %}
-      oprot.write_recursion(&.write_binary(self))
+    {% if @type.type_vars.size < 2 && @type.type_vars[0] == UInt8 %}
+      oprot.write_binary(self)
     {% else %}
       raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not UInt8"
     {% end %}
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    {% if @type.type_vars.size < 2 && @type.type_vars[0].name.stringify == "UInt8" %}
-      iprot.read_recursion(&.read_binary)
+    {% if @type.type_vars.size < 2 && @type.type_vars[0] == UInt8 %}
+      iprot.read_binary
     {% else %}
       raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not UInt8"
     {% end %}
@@ -381,20 +385,22 @@ struct Slice(T)
 end
 
 abstract struct Enum
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::I32
 
   def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_recursion(&.write_i32(self.to_i32))
+    oprot.write_i32(self.to_i32)
   end
 
   def self.read(from iprot : ::Thrift::BaseProtocol)
-    self.from_value(iprot.read_recursion(&.read_i32))
+    self.from_value(iprot.read_i32)
   end
 end
 
 # for container types we don't have write methods for non-thrift types
 
 class Array(T)
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::List
 
   def write(to oprot : ::Thrift::BaseProtocol)
@@ -415,7 +421,7 @@ class Array(T)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
       iprot.read_recursion do
         etype, size = iprot.read_list_begin
-        raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{etype}, expected: #{T.thrift_type}") if T.thrift_type != etype)
+        raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{etype}, expected: #{T.thrift_type}") if T.thrift_type != etype
         ret = Array(T).new(size) do |_|
           T.read from: iprot
         end
@@ -429,6 +435,7 @@ class Array(T)
 end
 
 struct Set(T)
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::Set
 
   def write(to oprot : ::Thrift::BaseProtocol)
@@ -450,7 +457,7 @@ struct Set(T)
     {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
       iprot.read_recursion do
         etype, size = iprot.read_set_begin
-        raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{etype}, expected: #{T.thrift_type}") if T.thrift_type != etype)
+        raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{etype}, expected: #{T.thrift_type}") if T.thrift_type != etype
         size.times do |_|
           ret << T.read from: iprot
         end
@@ -464,6 +471,7 @@ struct Set(T)
 end
 
 class Hash(K, V)
+  include ::Thrift::Type
   define_thrift_type ::Thrift::Types::Map
 
   def write(to oprot : ::Thrift::BaseProtocol)

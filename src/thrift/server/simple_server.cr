@@ -6,26 +6,27 @@ module Thrift
   # Crystal Event manager makes all network reads non blocking
   class SimpleServer < BaseServer
     def serve
+      interrupt = false
       begin
         @server_transport.listen
-        puts "1"
-        loop do
-          puts 2
-          client = @server_transport.accept
-          if client
-            puts 3
+        until interrupt
+          @server_transport.accept do |client|
             trans = @transport_factory.get_transport(client)
             prot = @protocol_factory.get_protocol(trans)
             begin
               loop do
-                @processor.process(prot, prot)
+                select
+                when int_set = interrupt_ch.receive?
+                  interrupt = int_set
+                  break
+                else
+                  @processor.process(prot, prot)
+                end
               end
             rescue Thrift::TransportException | Thrift::ProtocolException
             ensure
               trans.close
             end
-          else
-            Fiber.yield
           end
         end
       ensure

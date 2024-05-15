@@ -2,8 +2,21 @@ require "./thrift_struct.cr"
 
 module Thrift
   module Union
-    include BaseThriftType
+
     annotation UnionVar
+    end
+
+    macro def_comp
+      def <=>(other : self)
+        if @storage__{{@type.name.id}}.class == other.@storage__{{@type.name.id}}.class
+          return 0 if @storage__{{@type.name.id}}.nil?
+          return @storage__{{@type.name.id}} <=> other.@storage__{{@type.name.id}}
+        end
+        return -1 if !@storage__{{@type.name.id}}.nil? && other.@storage__{{@type.name.id}}.nil?
+        return 1 if @storage__{{@type.name.id}}.nil? && other.@storage__{{@type.name.id}}.nil?
+        #really not much else we can compare at this point
+        return @storage__{{@type.name.id}}.class.name <=> other.@storage__{{@type.name.id}}.class.name
+      end
     end
 
     private macro generate_union_writer
@@ -52,14 +65,14 @@ module Thrift
 
     macro included
       {% verbatim do %}
-        # generate_union_writer
-        # generate_union_reader
+        include ::Thrift::Type
+        define_thrift_type ::Thrift::Struct
         macro finished
           \{% begin %}
             \{%
               union_vars = @type.methods.select{ |method| method.annotation(UnionVar) }.map(&.return_type.id)
             %}
-            @storage : \{{ union_vars.join("|").id }} | Nil
+            @storage__{{@type.name.id}} : \{{ union_vars.join("|").id }} | Nil
           \{% end %}
 
           def initialize(**kwargs)
@@ -76,32 +89,39 @@ module Thrift
               \{% end %}
             \{% end %}
           end
+
+          def ==(other : ::Thrift::Union)
+            @storage__{{@type.name.id}} == other.@storage__{{@type.name.id}}
+          end
         end
       {% end %}
 
+      def_hash
+      def_comp
+
       def union_set?
-        !@storage.nil?
+        !@storage__{{@type.name.id}}.nil?
       end
 
-      private def union_internal
-        @storage
+      def union_internal
+        @storage__{{@type.name.id}}
       end
     end
 
     macro union_property(name)
       {% if name.is_a?(TypeDeclaration) %}
-        {% if name.value.symbolize != :"" %}
+        {% if name.value %}
           {{raise "Unions Cannot Have Default Values"}}
         {% end %}
         @[UnionVar]
         def {{name.var.id}} : {{name.type.id}}
-          return @storage.unsafe_as({{name.type.id}})
+          return @storage__\{{@type.name.id}}.unsafe_as({{name.type.id}})
         end
         def {{name.var.id}}=({{name.var.id}}_val : {{name.type.id}})
-          @storage = {{name.var.id}}_val
+          @storage__\{{@type.name.id}} = {{name.var.id}}_val
         end
         def is_{{name.var.id}}
-          @storage.is_a?({{name.type.id}})
+          @storage__\{{@type.name.id}}.is_a?({{name.type.id}})
         end
       {% else %}
         {{ raise "Needs to be Type Declaration ex: union_property x : Int32" }}

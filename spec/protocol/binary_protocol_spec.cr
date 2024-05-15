@@ -11,6 +11,14 @@ def check_list_data(data_size, buffer, *expected)
   end
 end
 
+def manual_array_write(type : Args.class, trans, arr, *, byte_format = IO::ByteFormat::BigEndian) forall Args
+  trans.write_bytes(Args.thrift_type.to_i8, byte_format)
+  trans.write_bytes(arr.size, byte_format)
+  arr.each do |ele|
+    trans.write_bytes(ele, byte_format)
+  end
+end
+
 describe ::Thrift::BinaryProtocol do
   it "initializes" do
     transport = Thrift::MemoryBufferTransport.new
@@ -18,14 +26,21 @@ describe ::Thrift::BinaryProtocol do
   end
 
   describe "Big Endian Encoded" do
+    byte_format = IO::ByteFormat::BigEndian
     binary_serializer = ::Thrift::Serializer.new(::Thrift::BinaryProtocolFactory.new IO::ByteFormat::BigEndian)
     trans = ::Thrift::MemoryBufferTransport.new
-    strict_writer = ::Thrift::BinaryProtocol.new(trans)
-    non_strict_writer = ::Thrift::BinaryProtocol.new(trans, false, false)
+    bprot = ::Thrift::BinaryProtocol.new(trans)
+
+    before_each do
+      trans.reset_buffer
+    end
 
     describe "#write_message_begin" do
+      strict_writer = ::Thrift::BinaryProtocol.new(trans)
+      non_strict_writer = ::Thrift::BinaryProtocol.new(trans, false, false)
+
       it "strict writes" do
-        trans.reset_buffer
+
         strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
         bytes = trans.peek.not_nil!
         bytes[0..1].should eq(Bytes[128, 1]) # Bytes[128, 1] == 0x8001
@@ -37,7 +52,7 @@ describe ::Thrift::BinaryProtocol do
       end
 
       it "non-strict writes" do
-        trans.reset_buffer
+
         non_strict_writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
         bytes = trans.peek.not_nil!
         bytes[0..3].should eq(Bytes[0, 0, 0, 4])
@@ -47,6 +62,55 @@ describe ::Thrift::BinaryProtocol do
       end
     end
 
+    describe "#write_field_begin" do
+      it "writes field correctly" do
+
+        bprot.write_field_begin("Something", Int32.thrift_type, 0_i16)
+        trans.peek.not_nil!.should eq Bytes[8, 0, 0]
+      end
+    end
+
+    describe "#write_map_begin" do
+      it "writes map correclty" do
+
+        bprot.write_map_begin(String.thrift_type, Int32.thrift_type, 12)
+        trans.peek.not_nil!.should eq Bytes[String.thrift_type.to_i8, Int32.thrift_type.to_i8, 0, 0, 0, 12]
+      end
+    end
+
+    describe "#write_list_begin" do
+      it "writes list correctly" do
+
+        bprot.write_list_begin(Float64.thrift_type, 12)
+        trans.peek.not_nil!.should eq Bytes[Float64.thrift_type.to_i8, 0, 0, 0, 12]
+      end
+    end
+
+    describe "#write_set_begin" do
+      it "writes set correctly" do
+
+        bprot.write_set_begin(Float64.thrift_type, 12)
+        trans.peek.not_nil!.should eq Bytes[Float64.thrift_type.to_i8, 0, 0, 0, 12]
+      end
+    end
+
+    describe "#write_field_stop" do
+      it "writes fields correctly" do
+
+        bprot.write_field_stop
+        trans.peek.not_nil!.should eq Bytes[Thrift::Types::Stop.to_i8]
+      end
+    end
+
+    describe "#write_bool" do
+      it "writes true" do
+        binary_serializer.serialize(true).should eq Bytes[1]
+      end
+
+      it "writes false" do
+        binary_serializer.serialize(false).should eq Bytes[0]
+      end
+    end
 
     describe "#write_byte" do
       it "writes Byte" do
@@ -143,7 +207,7 @@ describe ::Thrift::BinaryProtocol do
     end
 
     describe "#write_binary" do
-      it "write empty slice" do
+      it "write empty bytes" do
         binary_serializer.serialize(Bytes[]).should eq Bytes[0, 0, 0, 0]
       end
 
@@ -153,7 +217,7 @@ describe ::Thrift::BinaryProtocol do
     end
 
     describe "writing Containers" do
-      describe "List" do
+      describe "Array(T)#write" do
         type_index = 0
         size_index = 1
 
@@ -224,7 +288,7 @@ describe ::Thrift::BinaryProtocol do
         end
       end
 
-      describe "Set" do
+      describe "Set(T)#write" do
         it "writes empty Set" do
           binary_serializer.serialize(Set(Int64).new).should eq(Bytes[10, 0, 0, 0, 0])
         end
@@ -270,7 +334,7 @@ describe ::Thrift::BinaryProtocol do
         end
       end
 
-      describe "Map" do
+      describe "Hash(K, V)#write" do
         it "writes empty Map" do
           binary_serializer.serialize({} of String => String).should eq(Bytes[11, 11, 0, 0, 0, 0])
         end
@@ -321,23 +385,448 @@ describe ::Thrift::BinaryProtocol do
       end
     end
 
-    describe "writing struct" do
+    describe "Thrift::Struct#write" do
       it "writes populated field" do
-        binary_serializer.serialize(TestClass.new("", 24)).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 11, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", 24)).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 8, 0, 2, 0, 0, 0, 0, 0])
       end
 
       it "writes non populated field" do
-        binary_serializer.serialize(TestClass.new("", nil)).should eq(Bytes[1, 0, 1, 11, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", nil)).should eq(Bytes[8, 0, 2, 0, 0, 0, 0, 0])
       end
     end
 
-    describe "writing Union" do
+    describe "Thrift::Union#write" do
       it "writes union" do
         union = UnionTest.new(map: {"hello" => 24})
         binary_serializer.serialize(union).should eq(Bytes[13, 0, 1, 11, 8, 0, 0, 0, 1, 0, 0, 0, 5, 104, 101, 108, 108, 111, 0, 0, 0, 24, 0])
         union.string = "hello"
         binary_serializer.serialize(union).should eq Bytes[11, 0, 3, 0, 0, 0, 5, 104, 101, 108, 108, 111, 0]
       end
+    end
+
+    describe "#read_message_begin" do
+      it "reads message correctly" do
+
+        message = Bytes[128, 1, 0, 4, 0, 0, 0, 4, 84, 101, 115, 116, 0, 0, 0, 1]
+        trans.write(message)
+        bprot.read_message_begin.should eq({"Test", Thrift::MessageTypes::Oneway, 1})
+      end
+    end
+
+    describe "#read_field_begin" do
+      it "read any field" do
+
+        message = Bytes[Int32.thrift_type.to_i8, 0, 1]
+        trans.write(message)
+        bprot.read_field_begin.should eq({"", Int32.thrift_type, 1})
+      end
+
+      it "reads field stop" do
+
+        message = Bytes[Thrift::Types::Stop.to_i8, 255, 1]
+        trans.write(message)
+        bprot.read_field_begin.should eq({"", Thrift::Types::Stop, 0})
+      end
+    end
+
+    describe "#read_map_begin" do
+      it "reads map correctly" do
+
+        message = Bytes[String.thrift_type.to_i8, Int32.thrift_type.to_i8, 0, 0, 0, 12]
+        trans.write(message)
+        bprot.read_map_begin.should eq({String.thrift_type, Int32.thrift_type, 12})
+      end
+    end
+
+    describe "#read_list_begin" do
+      it "reads list correctly" do
+
+        message = Bytes[Float64.thrift_type.to_i8, 0, 0, 0, 255]
+        trans.write(message)
+        bprot.read_set_begin.should eq({Float64.thrift_type, 255})
+      end
+    end
+
+    describe "#read_set_begin" do
+      it "reads set correctly" do
+
+        message = Bytes[Float64.thrift_type.to_i8, 0, 0, 0, 255]
+        trans.write(message)
+        bprot.read_set_begin.should eq({Float64.thrift_type, 255})
+      end
+    end
+
+    describe "#read_bool" do
+      it "reads true" do
+
+        trans.write_bytes(1_i8, byte_format)
+        bprot.read_bool.should eq true
+      end
+
+      it "reads false" do
+
+        trans.write_bytes(0_i8)
+        bprot.read_bool.should eq false
+      end
+    end
+
+    describe "#read_byte" do
+      it "reads 0" do
+        trans.write_bytes(0_i8, byte_format)
+        bprot.read_byte.should eq 0_i8
+      end
+
+      it "read Int8::max" do
+        trans.write_bytes(Int8::MAX, byte_format)
+        bprot.read_byte.should eq Int8::MAX
+      end
+
+      it "reads -1" do
+        trans.write_bytes(-1, byte_format)
+        bprot.read_byte.should eq -1
+      end
+    end
+
+    describe "#read_i16" do
+      it "reads 0" do
+        trans.write_bytes(0_i16, byte_format)
+        bprot.read_i16.should eq 0_i8
+      end
+
+      it "reads Int16::MAX" do
+        trans.write_bytes(Int16::MAX, byte_format)
+        bprot.read_i16.should eq Int16::MAX
+      end
+
+      it "reads -1" do
+        trans.write_bytes(-1_i16, byte_format)
+        bprot.read_i16.should eq -1_i16
+      end
+    end
+
+    describe "#read_i32" do
+      it "reads 0" do
+        trans.write_bytes(0, byte_format)
+        bprot.read_i32.should eq 0
+      end
+
+      it "reads Int32::MAX" do
+        trans.write_bytes(Int32::MAX, byte_format)
+        bprot.read_i32.should eq Int32::MAX
+      end
+
+      it "reads -1" do
+        trans.write_bytes(-1, byte_format)
+        bprot.read_i32.should eq -1
+      end
+    end
+
+    describe "#read_i64" do
+      it "reads 0" do
+        trans.write_bytes(0_i64, byte_format)
+        bprot.read_i64.should eq 0
+      end
+
+      it "reads Int64::MAX" do
+        trans.write_bytes(Int64::MAX, byte_format)
+        bprot.read_i64.should eq Int64::MAX
+      end
+
+      it "reads -1" do
+        trans.write_bytes(-1_i64, byte_format)
+        bprot.read_i64.should eq -1_i64
+      end
+    end
+
+    describe "#read_double" do
+      it "reads 0" do
+        trans.write_bytes(0_f64, byte_format)
+        bprot.read_i64.should eq 0
+      end
+
+      it "reads Float64::MAX" do
+        trans.write_bytes(Float64::MAX, byte_format)
+        bprot.read_double.should eq Float64::MAX
+      end
+
+      it "read Float64::MIN" do
+        trans.write_bytes(Float64::MIN, byte_format)
+        bprot.read_double.should eq Float64::MIN
+      end
+
+      it "reads -1.2344554" do
+        trans.write_bytes(-1.2344554_f64, byte_format)
+        bprot.read_double.should eq -1.2344554_f64
+      end
+    end
+
+    describe "#read_uuid" do
+      it "reads empty uuid" do
+        trans.write(UUID.empty.bytes.to_slice)
+        bprot.read_uuid.should eq UUID.empty
+      end
+    end
+
+    describe "#read_string" do
+      it "reads empty string" do
+        str = ""
+        trans.write_bytes(str.size, byte_format)
+        trans.write(str.to_slice)
+        bprot.read_string.should eq ""
+      end
+
+      it "reads utf-8 string" do
+        str = "hello"
+        trans.write_bytes(str.size, byte_format)
+        trans.write(str.to_slice)
+        bprot.read_string.should eq "hello"
+      end
+    end
+
+    describe "#read_binary" do
+      it "writes empty binary" do
+        message = Bytes.empty
+        trans.write_bytes(message.size, byte_format)
+        trans.write(message)
+        bprot.read_binary.should eq message
+      end
+
+      it "writes arbitrary data" do
+        message = Bytes[1, 3423, 52312, 2315421]
+        trans.write_bytes(message.size, byte_format)
+        trans.write(message)
+        bprot.read_binary.should eq message
+      end
+    end
+
+    describe "Array(T)#read" do
+      it "reads empty list" do
+        manual_array_write(Int32, trans, [] of Int8, byte_format: byte_format)
+        Array(Int32).read(from: bprot).should eq [] of Int32
+      end
+
+      it "reads list of Bytes" do
+        arr = [0_i8, 12_i8, 127_i8]
+        manual_array_write(Int8, trans, arr, byte_format: byte_format)
+        Array(Int8).read(bprot).should eq arr
+      end
+
+      it "reads list of Int16" do
+        arr = [0_i16, 12_i16, 127_i16]
+        manual_array_write(Int16, trans, arr, byte_format: byte_format)
+        Array(Int16).read(bprot).should eq arr
+      end
+
+      it "reads list of Int32" do
+        arr = [0, 12, 127]
+        manual_array_write(Int32, trans, arr, byte_format: byte_format)
+        Array(Int32).read(bprot).should eq arr
+      end
+
+      it "reads list of int64" do
+        arr = [0_i64, 12_i64, 127_i64]
+        manual_array_write(Int64, trans, arr, byte_format: byte_format)
+        Array(Int64).read(bprot).should eq arr
+      end
+
+      it "reads list of Float64" do
+        arr = [0_f64, -123.3682, Float64::MAX]
+        manual_array_write(Float64, trans, arr, byte_format: byte_format)
+        Array(Float64).read(bprot).should eq arr
+      end
+
+      it "reads list of UUID" do
+        arr = [UUID.empty, UUID.empty]
+        trans.write_bytes(UUID.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write(ele.bytes.to_slice)
+        end
+        Array(UUID).read(bprot).should eq arr
+      end
+
+      it "reads list of String" do
+        arr = ["Hello", "World", "extra"]
+        trans.write_bytes(String.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(ele.size, byte_format)
+          trans.write(ele.to_slice)
+        end
+        Array(String).read(bprot).should eq arr
+      end
+
+      it "reads list of Bytes" do
+        arr = ["Hello".to_slice, "World".to_slice, "extra".to_slice]
+        trans.write_bytes(Bytes.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(ele.size, byte_format)
+          trans.write(ele)
+        end
+        Array(Bytes).read(bprot).should eq arr
+      end
+
+      it "reads list of lists" do
+        arr = [[1, 2], [3, 4, 5], [6]]
+        trans.write_bytes(Array.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(Int32.thrift_type.to_i8, byte_format)
+          trans.write_bytes(ele.size, byte_format)
+          ele.each do |ele2|
+            trans.write_bytes(ele2, byte_format)
+          end
+        end
+        Array(Array(Int32)).read(bprot).should eq arr
+      end
+
+      it "reads list of set" do
+        arr = [Set(Int32){1, 2}, Set(Int32){3, 4, 5}, Set(Int32){6}]
+        trans.write_bytes(Set.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(Int32.thrift_type.to_i8, byte_format)
+          trans.write_bytes(ele.size, byte_format)
+          ele.each do |ele2|
+            trans.write_bytes(ele2, byte_format)
+          end
+        end
+        Array(Set(Int32)).read(bprot).should eq arr
+      end
+
+      it "reads list of Hash" do
+        arr = [{"hello" => 12}, {"there" => 89989, "world" => -1}]
+        trans.write_bytes(Hash.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |arr_ele|
+          trans.write_bytes(String.thrift_type.to_i8, byte_format)
+          trans.write_bytes(Int32.thrift_type.to_i8, byte_format)
+          trans.write_bytes(arr_ele.size, byte_format)
+          arr_ele.each do |k ,v|
+            trans.write_bytes(k.size, byte_format)
+            trans.write(k.to_slice)
+            trans.write_bytes(v, byte_format)
+          end
+        end
+        Array(Hash(String, Int32)).read(bprot).should eq arr
+      end
+    end
+
+    describe "Set(T)#read" do
+      it "reads empty set" do
+        arr = Set(Int32).new
+        manual_array_write(Int32, trans, arr, byte_format: byte_format)
+        Set(Int32).read(from: bprot).should eq arr
+      end
+
+      it "reads set of Bytes" do
+        arr = [0_i8, 12_i8, 127_i8].to_set
+        manual_array_write(Int8, trans, arr, byte_format: byte_format)
+        Set(Int8).read(bprot).should eq arr
+      end
+
+      it "reads set of Int16" do
+        arr = [0_i16, 12_i16, 127_i16].to_set
+        manual_array_write(Int16, trans, arr, byte_format: byte_format)
+        Set(Int16).read(bprot).should eq arr
+      end
+
+      it "reads set of Int32" do
+        arr = [0, 12, 127].to_set
+        manual_array_write(Int32, trans, arr, byte_format: byte_format)
+        Set(Int32).read(bprot).should eq arr
+      end
+
+      it "reads set of int64" do
+        arr = [0_i64, 12_i64, 127_i64].to_set
+        manual_array_write(Int64, trans, arr, byte_format: byte_format)
+        Set(Int64).read(bprot).should eq arr
+      end
+
+      it "reads set of Float64" do
+        arr = [0_f64, -123.3682, Float64::MAX].to_set
+        manual_array_write(Float64, trans, arr, byte_format: byte_format)
+        Set(Float64).read(bprot).should eq arr
+      end
+
+      it "reads set of UUID" do
+        arr = [UUID.empty, UUID.empty].to_set
+        trans.write_bytes(UUID.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write(ele.bytes.to_slice)
+        end
+        Set(UUID).read(bprot).should eq [UUID.empty].to_set
+      end
+
+      it "reads set of String" do
+        arr = ["Hello", "World", "extra"].to_set
+        trans.write_bytes(String.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(ele.size, byte_format)
+          trans.write(ele.to_slice)
+        end
+        Set(String).read(bprot).should eq arr
+      end
+
+      it "reads set of Bytes" do
+        arr = ["Hello".to_slice, "World".to_slice, "extra".to_slice].to_set
+        trans.write_bytes(Bytes.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(ele.size, byte_format)
+          trans.write(ele)
+        end
+        Set(Bytes).read(bprot).should eq arr
+      end
+
+      it "reads set of lists" do
+        arr = [[1, 2], [3, 4, 5], [6]].to_set
+        trans.write_bytes(Array.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(Int32.thrift_type.to_i8, byte_format)
+          trans.write_bytes(ele.size, byte_format)
+          ele.each do |ele2|
+            trans.write_bytes(ele2, byte_format)
+          end
+        end
+        Set(Array(Int32)).read(bprot).should eq arr
+      end
+
+      it "reads set of set" do
+        arr = [Set(Int32){1, 2}, Set(Int32){3, 4, 5}, Set(Int32){6}].to_set
+        trans.write_bytes(Set.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |ele|
+          trans.write_bytes(Int32.thrift_type.to_i8, byte_format)
+          trans.write_bytes(ele.size, byte_format)
+          ele.each do |ele2|
+            trans.write_bytes(ele2, byte_format)
+          end
+        end
+        Set(Set(Int32)).read(bprot).should eq arr
+      end
+
+      it "reads set of Hash" do
+        arr = [{"hello" => 12}, {"there" => 89989, "world" => -1}].to_set
+        trans.write_bytes(Hash.thrift_type.to_i8, byte_format)
+        trans.write_bytes(arr.size, byte_format)
+        arr.each do |arr_ele|
+          trans.write_bytes(String.thrift_type.to_i8, byte_format)
+          trans.write_bytes(Int32.thrift_type.to_i8, byte_format)
+          trans.write_bytes(arr_ele.size, byte_format)
+          arr_ele.each do |k ,v|
+            trans.write_bytes(k.size, byte_format)
+            trans.write(k.to_slice)
+            trans.write_bytes(v, byte_format)
+          end
+        end
+        Set(Hash(String, Int32)).read(bprot).should eq arr
+      end
+
     end
   end
 end

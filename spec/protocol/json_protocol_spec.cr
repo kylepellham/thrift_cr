@@ -47,7 +47,7 @@ describe ::Thrift::JsonProtocol do
     end
 
     it "writes complete struct" do
-      serial = json_serializer.serialize(TestClass.new(12, "hello"))
+      serial = json_serializer.serialize(TestClass.new("hello",12))
       String.new(serial).should eq %q({"1":{"i32":12},"2":{"str":"hello"}})
     end
   end
@@ -178,9 +178,20 @@ describe ::Thrift::JsonProtocol do
 
   describe "#read_message_begin" do
     it "reads message begin" do
-      writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 2)
-      writer.write_message_end
-      msg = writer.read_message_begin
+      trans.write(%q([1,"Test",4,1).to_slice)
+      writer.read_message_begin.should eq({"Test", Thrift::MessageTypes::Oneway, 1})
+    end
+  end
+
+  describe "#read_message_end" do
+    it "reads end of message" do
+      trans.write(%q(]).to_slice)
+      writer.read_message_end
+    end
+  end
+
+  describe "#read_field_begin" do
+    it "reads beginning of field" do
     end
   end
 end
