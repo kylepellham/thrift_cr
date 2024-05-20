@@ -1,8 +1,6 @@
 module Thrift
   class ApplicationException < Exception
-    include ::Thrift::Type
-    include ::Thrift::Type::Read
-    extend ::Thrift::Type::ClassRead
+    include ::Thrift::Struct
 
     UNKNOWN                 =  0
     UNKNOWN_METHOD          =  1
@@ -45,16 +43,17 @@ module Thrift
     def write(to oprot : ::Thrift::BaseProtocol)
       oprot.write_struct_begin("Thrift::ApplicationException")
       @message.try do |message|
-        oprot.write_field_begin("message", String.thrift_type, 1_i16)
+        oprot.write_field_begin("message", message.thrift_type, 1_i16)
         message.write to: oprot
         oprot.write_field_end
       end
 
       @type.try do |type|
-        oprot.write_field_begin("type", Int32.thrift_type, 2_i16)
+        oprot.write_field_begin("type", message.thrift_type, 2_i16)
         type.write to: oprot
         oprot.write_field_end
       end
+
       oprot.write_field_stop
       oprot.write_struct_end
     end
