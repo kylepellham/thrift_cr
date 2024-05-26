@@ -40,11 +40,19 @@ module Thrift
     end
 
     macro define_thrift_type(thrift_type)
-      THRIFT_TYPE = {{thrift_type.id}}
+      def self.thrift_type
+        {{thrift_type}}
+      end
+
+      def thrift_type
+        {{thrift_type}}
+      end
     end
 
     macro included
       {% verbatim do %}
+        include ::Thrift::Type::Write
+        extend ::Thrift::Type::Read
       {% end %}
     end
 

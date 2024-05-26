@@ -1,6 +1,11 @@
 module Thrift
-  class ApplicationException < Exception
-    include ::Thrift::Struct
+  class Exception < ::Exception
+  end
+
+  class ApplicationException < ::Thrift::Exception
+    include ::Thrift::Type
+    include ::Thrift::Type::Read
+    extend ::Thrift::Type::ClassRead
 
     UNKNOWN                 =  0
     UNKNOWN_METHOD          =  1

@@ -20,7 +20,7 @@ module Thrift
     end
 
     private macro generate_union_writer
-      def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
+      def write(to oprot : ::Thrift::BaseProtocol)
         validate
         oprot.write_struct_begin(\{{@type.stringify}})
         \{% begin %}
@@ -39,8 +39,7 @@ module Thrift
     end
 
     private macro generate_union_reader
-      def self.read(iprot : ::Thrift::BaseProtocol)
-        recieved_union = \{{@type}}.allocate
+      def read(from iprot : ::Thrift::BaseProtocol)
         iprot.read_struct_begin
         loop do
           name, ftype, fid = iprot.read_field_begin
@@ -49,9 +48,11 @@ module Thrift
           \{% begin %}
           case {fid, ftype}
             \{% for var in @type.methods.select(&.annotation(UnionVar)) %}
-              when  {\{{var.annotation(::Thrift::Struct::Property)[:id]}}, \{{var.return_type.id}}.thrift_type}
-                recieved_struct.\{{var.name}} = \{{var.return_type}}.read from: iprot
+              when  { \{{var.annotation(::Thrift::Struct::Property)[:id]}}, \{{var.return_type.id}}.thrift_type }
+                @storage = \{{var.return_type.id}}.read from: iprot
             \{% end %}
+          else
+            iprot.skip ftype
           end
           \{% end %}
           iprot.read_field_end
@@ -62,17 +63,21 @@ module Thrift
       end
     end
 
-
     macro included
       {% verbatim do %}
+        include Comparable(self)
         include ::Thrift::Type
+        include ::Thrift::Type::Read
+        extend ::Thrift::Type::ClassRead
         define_thrift_type ::Thrift::Struct
         macro finished
+          generate_union_reader
+          generate_union_writer
           \{% begin %}
             \{%
               union_vars = @type.methods.select{ |method| method.annotation(UnionVar) }.map(&.return_type.id)
             %}
-            @storage__{{@type.name.id}} : \{{ union_vars.join("|").id }} | Nil
+            @storage : \{{ union_vars.join("|").id }} | Nil
           \{% end %}
 
           def initialize(**kwargs)
@@ -81,17 +86,15 @@ module Thrift
             end
             # default values are okay because at most only one of these conditions can be true
             keys = kwargs.keys
-            \{% for var in @type.methods %}
-              \{% if var.annotation(UnionVar) %}
-                if keys.includes?(\{{var.name.symbolize}})
-                  @storage = kwargs.fetch(\{{var.name.symbolize}}, nil.unsafe_as(\{{var.return_type.id}}))
-                end
-              \{% end %}
+            \{% for var in @type.methods.select(&.annotation(::Thrift::Union::UnionVar)) %}
+              if keys.includes?(\{{var.name.symbolize}})
+                @storage = kwargs.fetch(\{{var.name.symbolize}}, nil.unsafe_as(\{{var.return_type.id}}))
+              end
             \{% end %}
           end
 
-          def ==(other : ::Thrift::Union)
-            @storage__{{@type.name.id}} == other.@storage__{{@type.name.id}}
+          def ==(other : self)
+            @storage == other.@storage
           end
         end
       {% end %}
@@ -100,11 +103,11 @@ module Thrift
       def_comp
 
       def union_set?
-        !@storage__{{@type.name.id}}.nil?
+        !@storag.nil?
       end
 
       def union_internal
-        @storage__{{@type.name.id}}
+        @storage
       end
     end
 
@@ -115,13 +118,13 @@ module Thrift
         {% end %}
         @[UnionVar]
         def {{name.var.id}} : {{name.type.id}}
-          return @storage__\{{@type.name.id}}.unsafe_as({{name.type.id}})
+          return @storage.unsafe_as({{name.type.id}})
         end
         def {{name.var.id}}=({{name.var.id}}_val : {{name.type.id}})
-          @storage__\{{@type.name.id}} = {{name.var.id}}_val
+          @storage = {{name.var.id}}_val
         end
         def is_{{name.var.id}}
-          @storage__\{{@type.name.id}}.is_a?({{name.type.id}})
+          @storage.is_a?({{name.type.id}})
         end
       {% else %}
         {{ raise "Needs to be Type Declaration ex: union_property x : Int32" }}

@@ -3,7 +3,6 @@ require "./helpers.cr"
 
 module Thrift
   module Struct
-
     annotation Property
     end
 
@@ -24,77 +23,107 @@ module Thrift
     end
 
     macro struct_property(name)
-      {% if !name.type.is_a?(Union) && name.value %}
-        {{raise "Required fields do not have default values"}}
-      {% elsif name.type.is_a?(Union) && name.type.types.size > 2 && !name.type.types.any?(&.stringify.==("::Nil"))%}
-        {{raise "only can pass in a single nilable type"}}
-      {% end %}
-      @{{name}}
-
       def {{name.var.id}}
         @{{name.var.id}}
       end
 
-      def {{name.var.id}}=(@{{name.var.id}} : {{name.type.id}})
-        # this means that the field is required
-        {% if !name.type.is_a?(Union) %}
-          @__required_fields__\{{@type.name.id}}_set[{{name.var.stringify}}] = true
-        {% end %}
-      end
-    end
+      @{{name}}
 
-    private macro generate_writer
-      def write(oprot : ::Thrift::BaseProtocol, *args, **kwargs)
-        validate
-        oprot.write_struct_begin(\{{@type.stringify}})
-        \{% for var in @type.instance_vars %}
-          oprot.write_field_begin(\{{var.name.stringify}}, @\{{var.name.id}}.thrift_type, \{{var.annotation(Property)[:id]}}.to_i16)
-          \{% if var.annotation(Thrift::Struct::Property)[:req_out] %}
-            raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN,
-                      "Required field \{{var.name.id}} is unset!") if @\{{var.name}}.nil?
-          \{% end %}
-          @\{{var.name.id}}.write(oprot)
-          oprot.write_field_end
+      def {{name.var.id}}=({{name.var.id}})
+        \{% if (annotated_getter = @type.methods.find{|method| method.name.symbolize == {{name.var.symbolize}} }) && annotated_getter.annotation(::Thrift::Struct::Property) && annotated_getter.annotation(::Thrift::Struct::Property)[:requirement] == :optional %}
+          @__isset.{{name.var.id}} = !{{name.var.id}}.nil?
         \{% end %}
-        oprot.write_field_stop
-        oprot.write_struct_end
-      end
-
-      def self.instance_vars
-        return \{{@type.instance_vars.map &.stringify}}
+        @{{name.var.id}} = {{name.var.id}}
       end
     end
 
-    private macro generate_reader
-      def self.read(iprot)
-        recieved_struct = \{{@type.id}}.new
-        iprot.read_struct_begin
-        loop do
-          name, type, fid = iprot.read_field_begin
-          # puts fid
-          break if type == ::Thrift::Types::Stop
-          next if type == ::Thrift::Types::Void
-          \{% begin %}
-          case fid
-          \{% for var in @type.instance_vars %}
-            \{% if var.type.union_types.size < 3 %}
-              \{% type = var.type.union_types.find { |type| type.stringify != "Nil" } %}
-            \{% else %}
-              \{{raise "Union too large for thrift struct. Sing Nilable types only"}}
-            \{% end %}
-            # \{{puts var.annotation(::Thrift::Struct::Property)[:id].id}}
-            when \{{var.annotation(::Thrift::Struct::Property)[:id].id}}
-              recieved_struct.\{{var}} = \{{type}}.read(iprot)
+    private macro generate_struct_writer
+      def write(to oprot : ::Thrift::BaseProtocol)
+        \{% begin %}
+        \{%
+            requires_write = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :required}
+            opt_in_req_out_write = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :opt_in_req_out}
+            optional_write = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :optional}
+        %}
+
+        \{% if !opt_in_req_out_write.empty? %}
+          unless (%empty_fields = { \{{opt_in_req_out_write.map{|write| "#{write.name.stringify} => !#{write.name.id}.nil?"}.splat }} }.select{|k,v| !v}).empty?
+            raise ::Thrift::ProtocolException.new ::Thrift::ProtocolException::INVALID_DATA, "Required fields missing during write: #{%empty_fields.keys.join(", ")}"
+          end
+        \{% end %}
+        oprot.write_recursion do
+          oprot.write_struct_begin(self.class.name)
+
+          \{% for write in (requires_write + opt_in_req_out_write) %}
+            oprot.write_field_begin(\{{write.annotation(::Thrift::Struct::Property)[:transmit_name] || write.name.stringify}}, @\{{write.name.id}}.thrift_type, \{{write.annotation(::Thrift::Struct::Property)[:fid].id}}_i16)
+            @\{{write.name.id}}.write to: oprot
+            oprot.write_field_end
           \{% end %}
-          else
-            raise "Not a Possible field #{fid}"
+
+          \{% for write in optional_write %}
+            @__isset.\{{write.name.id}} && @\{{write.name.id}}.try do |\{{write.name.id}}|
+              oprot.write_field_begin(\{{write.annotation(::Thrift::Struct::Property)[:transmit_name] || write.name.stringify}}, \{{write.name.id}}.thrift_type, \{{write.annotation(::Thrift::Struct::Property)[:fid].id}}_i16)
+              \{{write.name.id}}.write to: oprot
+              oprot.write_field_end
           end
           \{% end %}
-          iprot.read_field_end
         end
-        iprot.read_struct_end
-        recieved_struct.validate
-        return recieved_struct
+        \{{debug}}
+        \{% end %}
+      end
+    end
+
+    private macro generate_struct_reader
+      protected def read(from iprot : ::Thrift::BaseProtocol)
+        \{% begin %}
+
+        \{% requires_check = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :required} %}
+        iprot.read_recursion do
+          \{% if !requires_check.empty? %}
+            %required_fields_set = {
+              \{{
+                requires_check.map do |required|
+                  "#{required.stringify} => false".id
+                end.splat
+              }}
+            }
+          \{% end %}
+          iprot.read_struct_begin
+          loop do
+            name, ftype, fid = iprot.read_field_begin
+            break if ftype == ::Thrift::Types::Stop
+            next if ftype == ::Thrift::Types::Void
+            case {fid, ftype}
+            \{% for var in @type.methods.select(&.annotation(::Thrift::Struct::Property)) %}
+              \{%
+                type = if var.return_type == Nil
+                  raise "struct_property #{var.name} is a Nil"
+                elsif var.return_type.is_a?(Union)
+                  var.return_type.type.find(&.!=(Nil))
+                else
+                  var.return_type
+                end
+              %}
+              when { \{{var.annotation(::Thrift::Struct::Property)[:id].id}}, \{{type.id}}.thrift_type }
+                @\{{var}} = \{{type}}.read from: iprot
+                \{% if var.annotation(::Thrift::Struct::Property)[:requirement] == :required %}
+                  %required_fields_set[\{{var.name.stringify}}] = true
+                \{% elsif var.annotation(::Thrift::Struct::Property)[:requirement] == :optional %}
+                  @__isset.\{{var.name.id}} = true
+                \{% end %}
+            \{% end %}
+            else
+              iprot.skip ftype
+            end
+            iprot.read_field_end
+          end
+          iprot.read_struct_end
+          \{% if !requires_check.empty? %}
+            %required_fields_set.select!{|k,v| !v}
+            raise ::Thrift::ProtocolException.new ::Thrift::ProtocolException::INVALID_DATA, "Required field(s) not set when reading: #{$required_fields_set.keys.join(", ")}" unless %required_fields_set.empty?
+          \{% end %}
+        end
+        \{% end %}
       end
     end
 
@@ -105,8 +134,26 @@ module Thrift
         include ::Thrift::Type::Read
         extend ::Thrift::Type::ClassRead
         define_thrift_type ::Thrift::Types::Struct
-        def_equals_and_hash
-        def_comp
+        macro finished
+          \{% begin %}
+          generate_reader
+          generate_writer
+          def_equals_and_hash
+          def_comp
+          \{% has_optionals = false %}
+          \{% for optional in @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :optional} %}
+            \{% has_optionals = true %}
+            struct {{@type.id}}__isset
+              property \{{optional.name.id}} : Bool = false
+            end
+          \{% end %}
+
+          \{% if has_optionals %}
+            @__isset = {{@type.id}}__isset.new
+          \{% end %}
+
+          \{% end %}
+        end
       {% end %}
     end
   end

@@ -387,11 +387,11 @@ describe ::Thrift::BinaryProtocol do
 
     describe "Thrift::Struct#write" do
       it "writes populated field" do
-        binary_serializer.serialize(TestClass.new("", 24)).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 8, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", inst_var1: 24)).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 8, 0, 2, 0, 0, 0, 0, 0])
       end
 
       it "writes non populated field" do
-        binary_serializer.serialize(TestClass.new("", nil)).should eq(Bytes[8, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", inst_var1: nil)).should eq(Bytes[8, 0, 2, 0, 0, 0, 0, 0])
       end
     end
 

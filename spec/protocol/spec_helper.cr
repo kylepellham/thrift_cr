@@ -10,40 +10,18 @@ end
 
 class TestClass
   include ::Thrift::Struct
-  @[::Thrift::Struct::Property(id: 1, req_in: false, req_out: false)]
+
+  @[::Thrift::Struct::Property(fid: 1, requirement: :optional)]
   struct_property inst_var1 : Int32?
-  @[::Thrift::Struct::Property(id: 2, req_in: true, req_out: true)]
+  @[::Thrift::Struct::Property(fid: 2, requirement: :required)]
   struct_property req_inst_var : String
 
 
-  def initialize(@req_inst_var, @inst_var1 = nil)
-  end
-
-  def validate
-    raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN,
-                      "Required field req_inst_var is unset!") if @req_inst_var.nil?
-  end
-
-  def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_struct_begin("TestClass")
-
-    @inst_var1.try do |inst_var1|
-      oprot.write_field_begin("inst_var1", Int32.thrift_type, 1_i16)
-      inst_var1.write to: oprot
-      oprot.write_field_end
+  def initialize(@req_inst_var, *, inst_var1 = nil)
+    inst_var1.try do |inst_var1|
+      @inst_var1 = inst_var1
+      @__isset.inst_var1 = true
     end
-
-    @req_inst_var.try do |req_inst_var|
-      oprot.write_field_begin("req_inst_var", String.thrift_type, 2_i16)
-      req_inst_var.write to: oprot
-      oprot.write_field_end
-    end
-
-    oprot.write_field_stop
-    oprot.write_struct_end
-  end
-
-  def self.read(from iprot : ::Thrift::BaseProtocol)
   end
 end
 
