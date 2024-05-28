@@ -3,9 +3,23 @@ require "./types.cr"
 require "./helpers.cr"
 
 module Thrift
-  module Struct
 
-    annotation Property
+  # mixing module that will define a class level read, protected instance level read and an instance level write method
+  # macro struct_propety is included that MUST be used when defining properties on a thrift generated class
+  module Struct
+    macro struct_property(name)
+      def {{name.var.id}} : {{name.type.id}}
+        @{{name.var.id}}
+      end
+
+      @{{name}}
+
+      def {{name.var.id}}=({{name.var.id}})
+        \{% if (annotated_getter = @type.methods.find{|method| method.name.symbolize == {{name.var.symbolize}} }) && annotated_getter.annotation(::Thrift::Type::Properties) && annotated_getter.annotation(::Thrift::Type::Properties)[:requirement] == :optional %}
+          @__isset.{{name.var.id}} = !{{name.var.id}}.nil?
+        \{% end %}
+        @{{name.var.id}} = {{name.var.id}}
+      end
     end
 
     def <=>(other : self)
@@ -15,34 +29,25 @@ module Thrift
       elsif !@{{var.name.id}}.nil? && other.@{{var.name.id}}.nil?
         return -1
       else
-        cmp = @{{var.name.id}} <=> other.@{{var.name.id}}
-        return cmp if cmp != 0
+        if ({{var.name.id}} = @{{var.name.id}}) && ({{var.name.id}}_other = other.@{{var.name.id}})
+          if ({{var.name.id}}.responds_to?(:<=>))
+            cmp = {{var.name.id}} <=> {{var.name.id}}_other
+            return cmp if cmp != 0
+          end
+        end
       end
       {% end %}
       0
     end
 
-    macro struct_property(name)
-      def {{name.var.id}} : {{name.type.id}}
-        @{{name.var.id}}
-      end
 
-      @{{name}}
-
-      def {{name.var.id}}=({{name.var.id}})
-        \{% if (annotated_getter = @type.methods.find{|method| method.name.symbolize == {{name.var.symbolize}} }) && annotated_getter.annotation(::Thrift::Struct::Property) && annotated_getter.annotation(::Thrift::Struct::Property)[:requirement] == :optional %}
-          @__isset.{{name.var.id}} = !{{name.var.id}}.nil?
-        \{% end %}
-        @{{name.var.id}} = {{name.var.id}}
-      end
-    end
 
     def write(to oprot : ::Thrift::BaseProtocol)
       {% begin %}
       {%
-          requires_write = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :required}
-          opt_in_req_out_write = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :opt_in_req_out}
-          optional_write = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :optional}
+          requires_write = @type.methods.select{|method| method.annotation(::Thrift::Type::Properties) && method.annotation(::Thrift::Type::Properties)[:requirement] == :required}
+          opt_in_req_out_write = @type.methods.select{|method| method.annotation(::Thrift::Type::Properties) && method.annotation(::Thrift::Type::Properties)[:requirement] == :opt_in_req_out}
+          optional_write = @type.methods.select{|method| method.annotation(::Thrift::Type::Properties) && method.annotation(::Thrift::Type::Properties)[:requirement] == :optional}
       %}
 
       {% if !opt_in_req_out_write.empty? %}
@@ -54,14 +59,14 @@ module Thrift
         oprot.write_struct_begin(self.class.name)
 
         {% for write in (requires_write + opt_in_req_out_write) %}
-          oprot.write_field_begin({{write.annotation(::Thrift::Struct::Property)[:transmit_name] || write.name.stringify}}, @{{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Struct::Property)[:fid].id}}_i16)
+          oprot.write_field_begin({{write.annotation(::Thrift::Type::Properties)[:transmit_name] || write.name.stringify}}, @{{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Type::Properties)[:fid].id}}_i16)
           @{{write.name.id}}.write to: oprot
           oprot.write_field_end
         {% end %}
 
         {% for write in optional_write %}
           @__isset.{{write.name.id}} && @{{write.name.id}}.try do |{{write.name.id}}|
-            oprot.write_field_begin({{write.annotation(::Thrift::Struct::Property)[:transmit_name] || write.name.stringify}}, {{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Struct::Property)[:fid].id}}_i16)
+            oprot.write_field_begin({{write.annotation(::Thrift::Type::Properties)[:transmit_name] || write.name.stringify}}, {{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Type::Properties)[:fid].id}}_i16)
             {{write.name.id}}.write to: oprot
             oprot.write_field_end
           end
@@ -75,7 +80,7 @@ module Thrift
     protected def read(from iprot : ::Thrift::BaseProtocol)
       {% begin %}
 
-      {% requires_check = @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :required} %}
+      {% requires_check = @type.methods.select{|method| method.annotation(::Thrift::Type::Properties) && method.annotation(::Thrift::Type::Properties)[:requirement] == :required} %}
       iprot.read_recursion do
         {% if !requires_check.empty? %}
           %required_fields_set = {
@@ -92,7 +97,7 @@ module Thrift
           break if ftype == ::Thrift::Types::Stop
           next if ftype == ::Thrift::Types::Void
           case {fid, ftype}
-          {% for var in @type.methods.select(&.annotation(::Thrift::Struct::Property)) %}
+          {% for var in @type.methods.select(&.annotation(::Thrift::Type::Properties)) %}
             {%
               type = if var.return_type == Nil
                 raise "struct_property #{var.name} is a Nil"
@@ -102,12 +107,11 @@ module Thrift
                 var.return_type
               end
             %}
-            {{debug}}
-            when { {{var.annotation(::Thrift::Struct::Property)[:fid].id}}, {{type}}.thrift_type }
+            when { {{var.annotation(::Thrift::Type::Properties)[:fid].id}}, {{type}}.thrift_type }
               @{{var.name.id}} = {{type}}.read from: iprot
-              {% if var.annotation(::Thrift::Struct::Property)[:requirement] == :required %}
+              {% if var.annotation(::Thrift::Type::Properties)[:requirement] == :required %}
                 %required_fields_set[{{var.name.stringify}}] = true
-              {% elsif var.annotation(::Thrift::Struct::Property)[:requirement] == :optional %}
+              {% elsif var.annotation(::Thrift::Type::Properties)[:requirement] == :optional %}
                 @__isset.{{var.name.id}} = true
               {% end %}
           {% end %}
@@ -134,19 +138,16 @@ module Thrift
         define_thrift_type ::Thrift::Types::Struct
         macro finished
           {% begin %}
-          def_equals_and_hash
           {% has_optionals = false %}
-          {% for optional in @type.methods.select{|method| method.annotation(::Thrift::Struct::Property) && method.annotation(::Thrift::Struct::Property)[:requirement] == :optional} %}
+          {% for optional in @type.methods.select{|method| method.annotation(::Thrift::Type::Properties) && method.annotation(::Thrift::Type::Properties)[:requirement] == :optional} %}
             {% has_optionals = true %}
             struct {{@type.id}}__isset
               property {{optional.name.id}} : Bool = false
             end
           {% end %}
-
           {% if has_optionals %}
             @__isset = {{@type.id}}__isset.new
           {% end %}
-
           {% end %}
         end
       {% end %}

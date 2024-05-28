@@ -10,9 +10,9 @@ end
 class Test_result
   include ::Thrift::Struct
 
-  @[::Thrift::Struct::Property(fid: 1, requirement: :optional)]
+  @[Properties(fid: 1, requirement: :optional)]
   struct_property result : String?
-  @[::Thrift::Struct::Property(fid: 2, requirement: :optional)]
+  @[Properties(fid: 2, requirement: :optional)]
   struct_property success : Bool?
 
   def initialize(*, result = nil, success = nil)
@@ -31,7 +31,6 @@ end
 
 class TestHandler
   def test
-    Fiber.yield
     "hello"
   end
 end
@@ -41,6 +40,7 @@ class TestProcessor
   @handler : TestHandler
 
   def process_test(seqid, oprot, iprot)
+    iprot.read_message_end
     result = Test_result.new
     result.result = @handler.test
     write_result(result, oprot, "Test", seqid)

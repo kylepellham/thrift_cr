@@ -339,7 +339,7 @@ module Thrift
       if (escape_num)
         trans.write(JSON_STRING_DELIMITER.as_bytes)
       end
-      trans.write(val)
+      trans.write_string(val.to_slice)
       if (escape_num)
         trans.write(JSON_STRING_DELIMITER.as_bytes)
       end
@@ -457,7 +457,7 @@ module Thrift
     end
 
     def write_uuid(uuid : UUID)
-      write_json_string(uuid)
+      write_json_string(uuid.to_s)
     end
 
     def write_string(str : String)
@@ -681,9 +681,9 @@ module Thrift
       ch = @reader.peek
       if (ch == JSON_OBJECT_END)
         field_type = Types::Stop
-        return "", field_type, 0
+        return "", field_type, 0_i16
       else
-        field_id = read_json_integer
+        field_id = read_json_integer.to_i16
         read_json_object_start
         field_type = get_type_from_json_name(read_json_string)
 
@@ -735,11 +735,11 @@ module Thrift
     end
 
     def read_byte : Int8
-      read_json_integer
+      read_json_integer.to_i8
     end
 
     def read_i16 : Int16
-      read_json_integer
+      read_json_integer.to_i16
     end
 
     def read_i32 : Int32
@@ -747,7 +747,7 @@ module Thrift
     end
 
     def read_i64 : Int64
-      read_json_integer
+      read_json_integer.to_i64
     end
 
     def read_double : Float64

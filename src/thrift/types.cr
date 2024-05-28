@@ -24,18 +24,33 @@ module Thrift
   end
 
   module Type
-    module Write
-      abstract def write(to oprot : ::Thrift::BaseProtocol)
+
+    # annotation to hold thrift metadata. required on all thrift type properties
+    # required fields:
+    #   fid - id value for writing and reading
+    #   requirement - :optional, :requirement, :opt_in_req_out
+    #   transmit_name - (optional) appears when the idl name was not safe for crystal
+    annotation Properties
     end
 
+    # All thrift compatible types need to define a write method
+    abstract def write(to oprot : ::Thrift::BaseProtocol)
+
+    # this module is indirectly extended in in include macros
     module Read
+      # All thrift compatible types need to define a read method
       abstract def read(from iprot : ::Thrift::BaseProtocol)
     end
 
+    # mixin module to define a class level read method
     module ClassRead
       def read(from iprot : ::Thrift::BaseProtocol)
         obj = self.allocate
         obj.tap(&.read from: iprot)
+      end
+
+      macro included
+        {{raise "Can only include Thrift::Type::ClassRead"}}
       end
     end
 
@@ -51,7 +66,6 @@ module Thrift
 
     macro included
       {% verbatim do %}
-        include ::Thrift::Type::Write
         extend ::Thrift::Type::Read
       {% end %}
     end

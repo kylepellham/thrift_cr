@@ -67,8 +67,10 @@ module Thrift
     end
   end
 
+  # Mixin that adds crystal safe #message for raising thrift exceptions
   module ExceptionAdapter
 
+    # xception_getter should be used in thrift exceptions because exceptions should be immutable
     macro xception_getter(name)
       def {{name.var.id}} : {{name.type}}
         @{{name.var.id}}

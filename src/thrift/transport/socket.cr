@@ -15,7 +15,9 @@ module Thrift
       last_exception = Exception.new("Could Not Resolve Address")
       ::Socket::Addrinfo.resolve(domain: @host, service: @port, type: ::Socket::Type::STREAM) do |addrinfo|
         begin
-          socket = TCPSocket.new(addrinfo.family)
+          host = addrinfo.ip_address.address
+          port = addrinfo.ip_address.port
+          socket = TCPSocket.new(host, port, connect_timeout: @timeout)
           socket.tcp_nodelay = true
           begin
             socket.connect(addrinfo.ip_address)
@@ -39,15 +41,13 @@ module Thrift
     def write(slice : Bytes) : Nil
       raise "closed stream" unless open?
       begin
-        if @timeout.nil? || @timeout == 0
-          if handle = @handle
-            sent = handle.send(slice)
-            if sent < slice.size
-              raise TransportException.new(TransportException::TIMED_OUT, "Socket: Timed out writing #{slice.size} bytes to #{@desc}")
-            end
-          else
-            raise TransportException.new(TransportException::NOT_OPEN, "Transport is Nil")
+        if handle = @handle
+          sent = handle.send(slice)
+          if sent < slice.size
+            raise TransportException.new(TransportException::TIMED_OUT, "Socket: Timed out writing #{slice.size} bytes to #{@desc}")
           end
+        else
+          raise TransportException.new(TransportException::NOT_OPEN, "Transport is Nil")
         end
       rescue ex : TransportException
         # pass this on

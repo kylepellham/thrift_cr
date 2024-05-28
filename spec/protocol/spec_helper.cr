@@ -1,7 +1,6 @@
 require "spec"
 require "../../src/thrift.cr"
 
-
 enum TestEnum
   TestValue1
   TestValue2 = 25
@@ -11,9 +10,9 @@ end
 class TestClass
   include ::Thrift::Struct
 
-  @[::Thrift::Struct::Property(fid: 1, requirement: :optional)]
+  @[Properties(fid: 1, requirement: :optional)]
   struct_property inst_var1 : Int32?
-  @[::Thrift::Struct::Property(fid: 2, requirement: :required)]
+  @[Properties(fid: 2, requirement: :required)]
   struct_property req_inst_var : String
 
 
@@ -28,42 +27,12 @@ end
 class UnionTest
   include ::Thrift::Union
 
+  @[Properties(fid: 1)]
   union_property map : Hash(String, Int32)
+  @[Properties(fid: 2)]
   union_property int : Int32
+  @[Properties(fid: 3)]
   union_property string : String
+  @[Properties(fid: 4)]
   union_property list : Array(Int32)
-
-  def initialize
-  end
-
-  def validate
-    raise "not set" unless union_set?
-  end
-
-  def write(to oprot : ::Thrift::BaseProtocol)
-    oprot.write_struct_begin("UnionTest")
-    case union_internal
-    when .is_a?(Hash(String, Int32))
-      oprot.write_field_begin("map", Hash.thrift_type, 1_i16)
-      map.write to: oprot
-      oprot.write_field_end
-    when .is_a?(Int32)
-      oprot.write_field_begin("int", Int32.thrift_type, 2_i16)
-      int.write to: oprot
-      oprot.write_field_end
-    when .is_a?(String)
-      oprot.write_field_begin("string", String.thrift_type, 3_i16)
-      string.write to: oprot
-      oprot.write_field_end
-    when.is_a?(Array(Int32))
-      oprot.write_field_begin("list", Array.thrift_type, 4_i16)
-      list.write to: oprot
-      oprot.write_field_end
-    end
-    oprot.write_field_stop
-    oprot.write_struct_end
-  end
-
-  def self.read(from iprot : ::Thrift::BaseProtocol)
-  end
 end
