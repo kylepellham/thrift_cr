@@ -1,6 +1,6 @@
+require "log"
 require "./types.cr"
 require "./helpers.cr"
-require "./thrift_logging.cr"
 
 module Thrift
   module Struct
@@ -60,7 +60,7 @@ module Thrift
         {% end %}
 
         {% for write in optional_write %}
-          @__isset.{{write.name.id}} && @{{write.name.id}}.try do |\{{write.name.id}}|
+          @__isset.{{write.name.id}} && @{{write.name.id}}.try do |{{write.name.id}}|
             oprot.write_field_begin({{write.annotation(::Thrift::Struct::Property)[:transmit_name] || write.name.stringify}}, {{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Struct::Property)[:fid].id}}_i16)
             {{write.name.id}}.write to: oprot
             oprot.write_field_end

@@ -1,7 +1,7 @@
+require "log"
 require "./protocol/base_protocol.cr"
 require "./types.cr"
 require "./exceptions.cr"
-require "./thrift_logging.cr"
 
 module Thrift
   module Processor
