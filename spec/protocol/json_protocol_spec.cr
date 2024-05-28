@@ -1,18 +1,27 @@
 require "./spec_helper.cr"
 
+class ::Thrift::JsonProtocol
+  def reset_context
+    @contexts = [] of ::Thrift::JSONContext
+    @context = ::Thrift::JSONContext.new
+    @reader = ::Thrift::LookaheadReader.new @trans
+  end
+end
+
 describe ::Thrift::JsonProtocol do
   json_serializer = ::Thrift::Serializer.new ::Thrift::JsonProtocolFactory.new
   trans = ::Thrift::MemoryBufferTransport.new
-  writer = ::Thrift::JsonProtocol.new(trans)
+  prot = ::Thrift::JsonProtocol.new(trans)
 
   before_each do
     trans.reset_buffer
+    prot.reset_context
   end
 
   describe "#write_message_begin" do
     it "writes correct message" do
-      writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
-      writer.write_message_end
+      prot.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
+      prot.write_message_end
       msg = trans.peek.not_nil!
       String.new(msg)[0..-2].should eq "[1,\"Test\",4,1"
     end
@@ -20,8 +29,8 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_message_end" do
     it "writes message end" do
-      writer.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
-      writer.write_message_end
+      prot.write_message_begin("Test", ::Thrift::MessageTypes::Oneway, 1)
+      prot.write_message_end
       msg = trans.peek.not_nil!
       String.new(msg)[-1].should eq ']'
     end
@@ -29,8 +38,8 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_struct_begin" do
     it "writes struct begin" do
-      writer.write_struct_begin "Test"
-      writer.write_struct_end
+      prot.write_struct_begin "Test"
+      prot.write_struct_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[0].should eq '{'
@@ -39,27 +48,27 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_struct_end" do
     it "writes struct end" do
-      writer.write_struct_begin "Test"
-      writer.write_struct_end
+      prot.write_struct_begin "Test"
+      prot.write_struct_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[-1].should eq '}'
     end
 
     it "writes complete struct" do
-      serial = json_serializer.serialize(TestClass.new("hello",12))
-      String.new(serial).should eq %q({"1":{"i32":12},"2":{"str":"hello"}})
+      serial = json_serializer.serialize(TestClass.new("hello", inst_var1: 12))
+      String.new(serial).should eq %q({"2":{"str":"hello"},"1":{"i32":12}})
     end
   end
 
   describe "#write_field_begin" do
     it "writes type and id" do
       # need to write an entire struct
-      writer.write_struct_begin "Test"
-      writer.write_field_begin "TestField", ::Thrift::Types::I16, 1
-      writer.write_i16 32_i16
-      writer.write_field_end
-      writer.write_struct_end
+      prot.write_struct_begin "Test"
+      prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
+      prot.write_i16 32_i16
+      prot.write_field_end
+      prot.write_struct_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[1..11].should eq %q("1":{"i16":)
@@ -67,22 +76,22 @@ describe ::Thrift::JsonProtocol do
 
     describe "#write_field_end" do
       it "writes closed field" do
-        writer.write_struct_begin "Test"
-        writer.write_field_begin "TestField", ::Thrift::Types::I16, 1
-        writer.write_i16 32_i16
-        writer.write_field_end
-        writer.write_struct_end
+        prot.write_struct_begin "Test"
+        prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
+        prot.write_i16 32_i16
+        prot.write_field_end
+        prot.write_struct_end
 
         msg = trans.peek.not_nil!
         String.new(msg)[-2].should eq '}'
       end
 
       it "writes entire struct" do
-        writer.write_struct_begin "Test"
-        writer.write_field_begin "TestField", ::Thrift::Types::I16, 1
-        writer.write_i16 32_i16
-        writer.write_field_end
-        writer.write_struct_end
+        prot.write_struct_begin "Test"
+        prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
+        prot.write_i16 32_i16
+        prot.write_field_end
+        prot.write_struct_end
 
         msg = trans.peek.not_nil!
         String.new(msg).should eq %q({"1":{"i16":32}})
@@ -92,8 +101,8 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_map_begin" do
     it "writes map begin" do
-      writer.write_map_begin ::Thrift::Types::Byte, ::Thrift::Types::String, 12
-      writer.write_map_end
+      prot.write_map_begin ::Thrift::Types::Byte, ::Thrift::Types::String, 12
+      prot.write_map_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[0..-2].should eq %q(["i8","str",12,{})
@@ -102,8 +111,8 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_map_end" do
     it "writes map end" do
-      writer.write_map_begin ::Thrift::Types::Byte, ::Thrift::Types::String, 12
-      writer.write_map_end
+      prot.write_map_begin ::Thrift::Types::Byte, ::Thrift::Types::String, 12
+      prot.write_map_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[-1].should eq ']'
@@ -117,8 +126,8 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_list_begin" do
     it "writes type and size" do
-      writer.write_list_begin ::Thrift::Types::I32, 12
-      writer.write_list_end
+      prot.write_list_begin ::Thrift::Types::I32, 12
+      prot.write_list_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[0..-2].should eq %q(["i32",12)
@@ -127,8 +136,8 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_list_end" do
     it "writes list end" do
-      writer.write_list_begin ::Thrift::Types::I32, 12
-      writer.write_list_end
+      prot.write_list_begin ::Thrift::Types::I32, 12
+      prot.write_list_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[-1].should eq ']'
@@ -144,13 +153,13 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_bool" do
     it "writes true" do
-      writer.write_bool true
+      prot.write_bool true
       msg = trans.peek.not_nil!
       String.new(msg).should eq "1"
     end
 
     it "writes false" do
-      writer.write_bool false
+      prot.write_bool false
       msg = trans.peek.not_nil!
       String.new(msg).should eq "0"
     end
@@ -158,19 +167,19 @@ describe ::Thrift::JsonProtocol do
 
   describe "#write_byte" do
     it "writes zero" do
-      writer.write_byte 0
+      prot.write_byte 0
       msg = trans.peek.not_nil!
       String.new(msg).should eq "0"
     end
 
     it "writes greater than zero" do
-      writer.write_byte 127_i8
+      prot.write_byte 127_i8
       msg = trans.peek.not_nil!
       String.new(msg).should eq "127"
     end
 
     it "writes less than zero" do
-      writer.write_byte -128_i8
+      prot.write_byte -128_i8
       msg = trans.peek.not_nil!
       String.new(msg).should eq "-128"
     end
@@ -179,19 +188,27 @@ describe ::Thrift::JsonProtocol do
   describe "#read_message_begin" do
     it "reads message begin" do
       trans.write(%q([1,"Test",4,1).to_slice)
-      writer.read_message_begin.should eq({"Test", Thrift::MessageTypes::Oneway, 1})
+      prot.read_message_begin.should eq({"Test", Thrift::MessageTypes::Oneway, 1})
     end
   end
 
   describe "#read_message_end" do
     it "reads end of message" do
       trans.write(%q(]).to_slice)
-      writer.read_message_end
+      prot.push_context(::Thrift::JSONListContext.new)
+      prot.read_message_end
     end
   end
 
   describe "#read_field_begin" do
     it "reads beginning of field" do
+    end
+  end
+
+  describe "#read_i32" do
+    it "reads an int" do
+      trans.write_string(123321.to_s.to_slice)
+      prot.read_i32.should eq 123321
     end
   end
 end
