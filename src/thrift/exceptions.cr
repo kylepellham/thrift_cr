@@ -26,9 +26,13 @@ module Thrift
       @type = type
     end
 
+    def message
+      "message: #{@message}, type: #{@type}"
+    end
+
     def read(from iprot : ::Thrift::BaseProtocol)
       iprot.read_struct_begin
-      while true
+      loop do
         fname, ftype, fid = iprot.read_field_begin
         break if ftype == Types::Stop
         case {fid, ftype}
@@ -42,7 +46,6 @@ module Thrift
         iprot.read_field_end
       end
       iprot.read_struct_end
-      ret
     end
 
     def write(to oprot : ::Thrift::BaseProtocol)
@@ -54,13 +57,41 @@ module Thrift
       end
 
       @type.try do |type|
-        oprot.write_field_begin("type", message.thrift_type, 2_i16)
+        oprot.write_field_begin("type", type.thrift_type, 2_i16)
         type.write to: oprot
         oprot.write_field_end
       end
 
       oprot.write_field_stop
       oprot.write_struct_end
+    end
+  end
+
+  module ExceptionAdapter
+
+    macro xception_getter(name)
+      def {{name.var.id}} : {{name.type}}
+        @{{name.var.id}}
+      end
+
+      @{{name}}
+    end
+
+    def message
+      {% begin %}
+      first = true
+      %message = ""
+      {% for var in @type.methods.select(&.annotation(::Thrift::Struct::Property)) %}
+        if !@{{var.name.id}}.nil?
+          if first
+            first = false
+          else
+            %message += ", "
+          end
+          %message += "{{var.name.id}}: #{@{{var.name.id}}}"
+        end
+      {% end %}
+      {% end %}
     end
   end
 end

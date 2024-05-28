@@ -8,14 +8,14 @@ module Thrift
 
     macro def_comp
       def <=>(other : self)
-        if @storage__{{@type.name.id}}.class == other.@storage__{{@type.name.id}}.class
-          return 0 if @storage__{{@type.name.id}}.nil?
-          return @storage__{{@type.name.id}} <=> other.@storage__{{@type.name.id}}
+        if @storage.class == other.@storage.class
+          return 0 if @storage.nil?
+          return @storage <=> other.@storage
         end
-        return -1 if !@storage__{{@type.name.id}}.nil? && other.@storage__{{@type.name.id}}.nil?
-        return 1 if @storage__{{@type.name.id}}.nil? && other.@storage__{{@type.name.id}}.nil?
+        return -1 if !@storage.nil? && other.@storage.nil?
+        return 1 if @storage.nil? && other.@storage.nil?
         #really not much else we can compare at this point
-        return @storage__{{@type.name.id}}.class.name <=> other.@storage__{{@type.name.id}}.class.name
+        return @storage.class.name <=> other.@storage.class.name
       end
     end
 
@@ -75,9 +75,9 @@ module Thrift
           generate_union_writer
           \{% begin %}
             \{%
-              union_vars = @type.methods.select{ |method| method.annotation(UnionVar) }.map(&.return_type.id)
+              union_vars = @type.methods.select{ |method| method.annotation(UnionVar) }.map{|method| "::#{method.return_type}".id}
             %}
-            @storage : \{{ union_vars.join("|").id }} | Nil
+            @storage : \{{ union_vars.join(" | ").id }} | Nil
           \{% end %}
 
           def initialize(**kwargs)

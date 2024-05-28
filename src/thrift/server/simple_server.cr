@@ -23,11 +23,13 @@ module Thrift
                   @processor.process(prot, prot)
                 end
               end
+              Fiber.yield
             rescue Thrift::TransportException | Thrift::ProtocolException
             ensure
               trans.close
             end
           end
+          Fiber.yield
         end
       ensure
         @server_transport.close

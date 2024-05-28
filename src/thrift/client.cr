@@ -24,9 +24,8 @@ module Thrift
 
     def send_message_args(type : ArgsClass.class, **args) forall ArgsClass
       data = ArgsClass.new(**args)
-      pp data
       begin
-        data.write(@oprot)
+        data.write to: @oprot
       rescue ex : Exception
         @oprot.trans.close
         raise ex
@@ -46,15 +45,14 @@ module Thrift
     end
 
     def receive_message(type : ResultClass.class) : ResultClass forall ResultClass
-      result = ResultClass.read(@iprot)
+      result = ResultClass.read from: @iprot
       @iprot.read_message_end
       result
     end
 
     def handle_exception(mtype)
       if mtype == MessageTypes::Exception
-        x = ApplicationException.new
-        x.read(@iprot)
+        x = ApplicationException.read from: @iprot
         @iprot.read_message_end
         raise x
       end

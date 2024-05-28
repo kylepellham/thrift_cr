@@ -1,18 +1,13 @@
-require "log"
 require "./protocol/base_protocol.cr"
 require "./types.cr"
 require "./exceptions.cr"
+require "./thrift_logging.cr"
 
 module Thrift
   module Processor
-    @logger : Log
-    def initialize(handler, logger = nil)
+    Log = ::Log.for(Processor)
+    def initialize(handler)
       @handler = handler
-      if logger.nil?
-        @logger = ::Log.for(Processor, Log::Severity::Warn)
-      else
-        @logger = logger
-      end
     end
 
     def read_args(iprot, args_class : ArgsClass.class) forall ArgsClass
@@ -23,14 +18,14 @@ module Thrift
 
     def write_result(result, oprot, name, seqid)
       oprot.write_message_begin(name, MessageTypes::Reply, seqid)
-      result.write(oprot)
+      result.write to: oprot
       oprot.write_message_end
       oprot.trans.flush
     end
 
     def write_error(err, oprot, name, seqid)
       oprot.write_message_begin(name, MessageTypes::Exception, seqid)
-      err.write(oprot)
+      err.write to: oprot
       oprot.write_message_end
       oprot.trans.flush
     end
@@ -39,17 +34,8 @@ module Thrift
       def process(iprot : Thrift::BaseProtocol, oprot : Thrift::BaseProtocol)
         name, type, seqid = iprot.read_message_begin
         begin
-            # begin
-            #   # pp name, type, seqid
-            #   call("#{name}", seqid, iprot, oprot)
-            # rescue ex
-            #   x = ApplicationException.new(ApplicationException::INTERNAL_ERROR, "Internal error")
-            #   @logger.try(&.debug { "Internal error : #{ex.message}\n#{ex.backtrace.join("\n")}" })
-            #   write_error(x, oprot, name, seqid)
-            # end
-            # true
           \{% begin %}
-          case name
+          case name.underscore
           \{% for method in @type.methods %}
             \{% if method.name.stringify[0.."process_".size - 1] == "process_" %}
           when "\{{method.name["process_".size..-1].id}}"
@@ -66,8 +52,9 @@ module Thrift
           \{% end %}
           return true
         rescue ex
+          puts "error"
           x = ::Thrift::ApplicationException.new(::Thrift::ApplicationException::INTERNAL_ERROR, "Internal error")
-          @logger.debug { "Internal error : #{ex.message}\n#{ex.backtrace.join("\n")}" }
+          Log.debug { "Internal error : #{ex.message}\n#{ex.backtrace.join("\n")}" }
           write_error(x, oprot, name, seqid)
           return false
         end
@@ -78,7 +65,7 @@ module Thrift
         case method
         \{% for method in @type.methods %}
           \{% if method.name.stringify[0.."process_".size - 1] == "process_" %}
-        when "\{{method.name.id}}"["process_".size..-1]
+        when \{{method.name.stringify["process_".size..-1]}}
           \{{method.name}}(seqid, iprot, oprot)
           \{% end %}
         \{% end %}
