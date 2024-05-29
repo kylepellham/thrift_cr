@@ -89,9 +89,7 @@ module Thrift
     end
 
     def write(slice : Bytes) : Nil
-      if @total_bytes + slice.size > @capacity
-        @buf.move_from(@buf + slice.size, @capacity - slice.size)
-      end
+      raise IO::Error.new "Overflow" if @total_bytes + slice.size > @capacity
       slice.move_to(@buf + @total_bytes, slice.size)
       @total_bytes += slice.size
     end

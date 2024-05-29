@@ -38,4 +38,11 @@ describe Thrift::MemoryBufferTransport do
     buffer.read(bytes)
     bytes.should eq "hello".to_slice
   end
+
+  it "throws on writing too much data" do
+    buffer = Thrift::MemoryBufferTransport.new(8)
+    expect_raises(IO::Error, "Overflow") do
+      buffer.write("123456789".to_slice)
+    end
+  end
 end
