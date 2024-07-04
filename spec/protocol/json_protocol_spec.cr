@@ -1,17 +1,17 @@
 require "./spec_helper.cr"
 
-class ::Thrift::JsonProtocol
+class ::Thrift::Protocol::JsonProtocol
   def reset_context
-    @contexts = [] of ::Thrift::JSONContext
+    @contexts.clear
     @context = ::Thrift::JSONContext.new
     @reader = ::Thrift::LookaheadReader.new @trans
   end
 end
 
-describe ::Thrift::JsonProtocol do
-  json_serializer = ::Thrift::Serializer.new ::Thrift::JsonProtocolFactory.new
-  trans = ::Thrift::MemoryBufferTransport.new
-  prot = ::Thrift::JsonProtocol.new(trans)
+describe ::Thrift::Protocol::JsonProtocol do
+  json_serializer = ::Thrift::Serializer.new ::Thrift::Protocol::JsonProtocolFactory.new
+  trans = ::Thrift::Transport::MemoryBufferTransport.new
+  prot = ::Thrift::Protocol::JsonProtocol.new(trans)
 
   before_each do
     trans.reset_buffer
@@ -39,7 +39,6 @@ describe ::Thrift::JsonProtocol do
   describe "#write_struct_begin" do
     it "writes struct begin" do
       prot.write_struct_begin "Test"
-      prot.write_struct_end
 
       msg = trans.peek.not_nil!
       String.new(msg)[0].should eq '{'
@@ -73,29 +72,29 @@ describe ::Thrift::JsonProtocol do
       msg = trans.peek.not_nil!
       String.new(msg)[1..11].should eq %q("1":{"i16":)
     end
+  end
 
-    describe "#write_field_end" do
-      it "writes closed field" do
-        prot.write_struct_begin "Test"
-        prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
-        prot.write_i16 32_i16
-        prot.write_field_end
-        prot.write_struct_end
+  describe "#write_field_end" do
+    it "writes closed field" do
+      prot.write_struct_begin "Test"
+      prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
+      prot.write_i16 32_i16
+      prot.write_field_end
+      prot.write_struct_end
 
-        msg = trans.peek.not_nil!
-        String.new(msg)[-2].should eq '}'
-      end
+      msg = trans.peek.not_nil!
+      String.new(msg)[-2].should eq '}'
+    end
 
-      it "writes entire struct" do
-        prot.write_struct_begin "Test"
-        prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
-        prot.write_i16 32_i16
-        prot.write_field_end
-        prot.write_struct_end
+    it "writes entire struct" do
+      prot.write_struct_begin "Test"
+      prot.write_field_begin "TestField", ::Thrift::Types::I16, 1
+      prot.write_i16 32_i16
+      prot.write_field_end
+      prot.write_struct_end
 
-        msg = trans.peek.not_nil!
-        String.new(msg).should eq %q({"1":{"i16":32}})
-      end
+      msg = trans.peek.not_nil!
+      String.new(msg).should eq %q({"1":{"i16":32}})
     end
   end
 
@@ -149,7 +148,7 @@ describe ::Thrift::JsonProtocol do
     end
   end
 
-  # writing a set is the same as writing a list to don't test those
+  # writing a set is the same as writing a list so don't test those
 
   describe "#write_bool" do
     it "writes true" do
@@ -206,9 +205,14 @@ describe ::Thrift::JsonProtocol do
   end
 
   describe "#read_i32" do
-    it "reads an int" do
-      trans.write_string(123321.to_s.to_slice)
-      prot.read_i32.should eq 123321
+    it "reads a max int" do
+      trans.write_string(Int32::MAX.to_s.to_slice)
+      prot.read_i32.should eq Int32::MAX
+    end
+
+    it "reads min int" do
+      trans.write_string(Int32::MIN.to_s.to_slice)
+      prot.read_i32.should eq Int32::MIN
     end
   end
 end

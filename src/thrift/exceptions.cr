@@ -1,3 +1,22 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements. See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership. The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License. You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
 module Thrift
   class Exception < ::Exception
   end
@@ -48,8 +67,8 @@ module Thrift
       iprot.read_struct_end
     end
 
-    def write(to oprot : ::Thrift::BaseProtocol)
-      oprot.write_struct_begin("Thrift::ApplicationException")
+    def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+      oprot.write_struct_begin(self.class.name)
       @message.try do |message|
         oprot.write_field_begin("message", message.thrift_type, 1_i16)
         message.write to: oprot
@@ -67,8 +86,8 @@ module Thrift
     end
   end
 
-  # Mixin that adds crystal safe #message for raising thrift exceptions
-  module ExceptionAdapter
+  # Mixin that adds crystal safe `message` for raising thrift exceptions
+  module Struct::ExceptionAdapter
 
     # xception_getter should be used in thrift exceptions because exceptions should be immutable
     macro xception_getter(name)

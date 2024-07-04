@@ -1,3 +1,22 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements. See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership. The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License. You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
 module Thrift
   enum Types : Int8
     Stop   =  0
@@ -25,26 +44,53 @@ module Thrift
 
   module Type
 
-    # annotation to hold thrift metadata. required on all thrift type properties
+    # annotation to hold thrift metadata. required on all thrift type SerialOpts
     # required fields:
+    # ```text
     #   fid - id value for writing and reading
-    #   requirement - :optional, :requirement, :opt_in_req_out
+    #   requirement - :optional, :required, :opt_in_req_out
     #   transmit_name - (optional) appears when the idl name was not safe for crystal
-    annotation Properties
+    # ```
+    annotation SerialOpts
     end
 
     # All thrift compatible types need to define a write method
-    abstract def write(to oprot : ::Thrift::BaseProtocol)
+    abstract def write(to oprot : ::Thrift::Protocol::BaseProtocol)
 
-    # this module is indirectly extended in in include macros
+    # this module is indirectly extended in include macros
     module Read
-      # All thrift compatible types need to define a read method
-      abstract def read(from iprot : ::Thrift::BaseProtocol)
+      # All thrift compatible types need to define a class level read method
+      abstract def read(from iprot : ::Thrift::Protocol::BaseProtocol)
     end
 
     # mixin module to define a class level read method
     module ClassRead
-      def read(from iprot : ::Thrift::BaseProtocol)
+      # read method for reading an object from a transport using a given protocol
+      #
+      # ```
+      # require "thrift"
+      #
+      # class MyClass
+      #   include Thrift::Struct
+      #
+      #   @[Thrift::Type::SerialOpts(fid: 0, requirement: :required)]
+      #   struct_property prop_int : Int32
+      #   @[Thrift::Type::SerialOpts(fid: 1, requirement: :required)]
+      #   struct_property prop_str : String
+      #
+      #   def initialize(@prop_int, @prop_str)
+      #   end
+      # end
+      #
+      # transport = Thrift::Transport::MemoryBufferTransport.new
+      # protocol = Thrift::Protocol::BinaryProtocol.new(transport)
+      # transport.write(Bytes[8, 0, 0, 0, 0, 0, 12, 11, 0, 1, 0, 0, 0, 5, 104, 101, 108, 108, 111, 0])
+      #
+      # my_class = MyClass.read from: protocol
+      # my_class.prop_int # => 12
+      # my_class.prop_str # => "hello"
+      # ```
+      def read(from iprot : ::Thrift::Protocol::BaseProtocol)
         obj = self.allocate
         obj.tap(&.read from: iprot)
       end

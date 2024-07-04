@@ -19,25 +19,25 @@ def manual_array_write(type : Args.class, trans, arr, *, byte_format = IO::ByteF
   end
 end
 
-describe ::Thrift::BinaryProtocol do
+describe ::Thrift::Protocol::BinaryProtocol do
   it "initializes" do
-    transport = Thrift::MemoryBufferTransport.new
-    bprot = Thrift::BinaryProtocol.new(transport)
+    transport = Thrift::Transport::MemoryBufferTransport.new
+    bprot = Thrift::Protocol::BinaryProtocol.new(transport)
   end
 
   describe "Big Endian Encoded" do
     byte_format = IO::ByteFormat::BigEndian
-    binary_serializer = ::Thrift::Serializer.new(::Thrift::BinaryProtocolFactory.new IO::ByteFormat::BigEndian)
-    trans = ::Thrift::MemoryBufferTransport.new
-    bprot = ::Thrift::BinaryProtocol.new(trans)
+    binary_serializer = ::Thrift::Serializer.new(::Thrift::Protocol::BinaryProtocolFactory.new IO::ByteFormat::BigEndian)
+    trans = ::Thrift::Transport::MemoryBufferTransport.new
+    bprot = ::Thrift::Protocol::BinaryProtocol.new(trans)
 
     before_each do
       trans.reset_buffer
     end
 
     describe "#write_message_begin" do
-      strict_writer = ::Thrift::BinaryProtocol.new(trans)
-      non_strict_writer = ::Thrift::BinaryProtocol.new(trans, false, false)
+      strict_writer = ::Thrift::Protocol::BinaryProtocol.new(trans)
+      non_strict_writer = ::Thrift::Protocol::BinaryProtocol.new(trans, false, false)
 
       it "strict writes" do
 
@@ -387,11 +387,11 @@ describe ::Thrift::BinaryProtocol do
 
     describe "Thrift::Struct#write" do
       it "writes populated field" do
-        binary_serializer.serialize(TestClass.new("", inst_var1: 24)).should eq(Bytes[8, 0, 1, 0, 0, 0, 24, 8, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", inst_var1: 24)).should eq(Bytes[ 11, 0, 2, 0, 0, 0, 0, 8, 0, 1, 0, 0, 0, 24, 0])
       end
 
       it "writes non populated field" do
-        binary_serializer.serialize(TestClass.new("", inst_var1: nil)).should eq(Bytes[8, 0, 2, 0, 0, 0, 0, 0])
+        binary_serializer.serialize(TestClass.new("", inst_var1: nil)).should eq(Bytes[11, 0, 2, 0, 0, 0, 0, 0])
       end
     end
 

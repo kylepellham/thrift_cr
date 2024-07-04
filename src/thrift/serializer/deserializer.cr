@@ -21,8 +21,9 @@ require "../protocol/binary_protocol.cr"
 require "../transport/memory_buffer_transport.cr"
 
 module Thrift
+  # Deserializer simply deserializes a transport buffer using a given Protocol Factory
   class Deserializer
-    @protocol : BaseProtocol
+    @protocol : Protocol::BaseProtocol
 
     def initialize(protocol_factory = BinaryProtocolFactory.new)
       @transport = MemoryBufferTransport.new

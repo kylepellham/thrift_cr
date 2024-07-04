@@ -17,29 +17,9 @@
 # under the License.
 #
 
+require "log"
+
 module Thrift
-  module Transport
-    # BaseServerTransport will make enable incoming Thrift Transport connections
-    abstract class BaseServerTransport
-      abstract def listen
-
-      abstract def accept?
-
-      abstract def closed?
-
-      def accept(&)
-        if client = accept?
-          begin
-            yield client
-          ensure
-            client.close
-          end
-        end
-      end
-
-      def close
-        nil
-      end
-    end
-  end
+  # this log exists for all thrift types including structs
+  Log = ::Log.for(Thrift)
 end

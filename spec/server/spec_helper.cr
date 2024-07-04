@@ -10,9 +10,9 @@ end
 class Test_result
   include ::Thrift::Struct
 
-  @[Properties(fid: 1, requirement: :optional)]
+  @[SerialOpts(fid: 1, requirement: :optional)]
   struct_property result : String?
-  @[Properties(fid: 2, requirement: :optional)]
+  @[SerialOpts(fid: 2, requirement: :optional)]
   struct_property success : Bool?
 
   def initialize(*, result = nil, success = nil)

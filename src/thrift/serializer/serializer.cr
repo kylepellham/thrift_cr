@@ -2,11 +2,12 @@ require "../protocol/binary_protocol.cr"
 require "../transport/memory_buffer_transport.cr"
 
 module Thrift
+  # Serializer will simply serializes thrift data using the provided Protocol Factory
   class Serializer
-    @protocol : BaseProtocol
+    @protocol : Protocol::BaseProtocol
 
-    def initialize(protocol_factory = BinaryProtocolFactory.new)
-      @transport = MemoryBufferTransport.new
+    def initialize(protocol_factory = Protocol::BinaryProtocolFactory.new)
+      @transport = Transport::MemoryBufferTransport.new
       @protocol = protocol_factory.get_protocol(@transport)
     end
 
