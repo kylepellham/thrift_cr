@@ -17,29 +17,27 @@
 # under the License.
 #
 
+require "../protocol/binary_protocol.cr"
+require "../transport/memory_buffer_transport.cr"
+
 module Thrift
-  module Transport
-    # BaseServerTransport will make enable incoming Thrift Transport connections
-    abstract class BaseServerTransport
-      abstract def listen
+  # Deserializer simply deserializes a transport buffer using a given Protocol Factory
+  class Deserializer
+    @protocol : Protocol::BaseProtocol
 
-      abstract def accept?
+    def initialize(protocol_factory = BinaryProtocolFactory.new)
+      @transport = MemoryBufferTransport.new
+      @protocol = protocol_factory.get_protocol(@transport)
+    end
 
-      abstract def closed?
+    def deserialize(buffer, otype : Type.class) forall Type
+      @transport.reset_buffer(buffer)
+      Type.read(@protocol)
+    end
 
-      def accept(&)
-        if client = accept?
-          begin
-            yield client
-          ensure
-            client.close
-          end
-        end
-      end
-
-      def close
-        nil
-      end
+    def self.deserialize(buffer, otype : Type.class, protocol = BinaryProtocolFactory.new) forall Type
+      tmp = new(protocol)
+      tmp.deserialize(buffer, otype)
     end
   end
 end

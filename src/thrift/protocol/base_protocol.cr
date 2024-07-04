@@ -1,275 +1,524 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements. See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership. The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License. You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+require "uuid"
+
 require "../types.cr"
 require "../transport/base_transport.cr"
 
 module Thrift
+  module Protocol
+    class ProtocolException < Exception
+      UNKNOWN         = 0
+      INVALID_DATA    = 1
+      NEGATIVE_SIZE   = 2
+      SIZE_LIMIT      = 3
+      BAD_VERSION     = 4
+      NOT_IMPLEMENTED = 5
+      DEPTH_LIMIT     = 6
 
-  class ProtocolException < Exception
+      getter :type
 
-    UNKNOWN = 0
-    INVALID_DATA = 1
-    NEGATIVE_SIZE = 2
-    SIZE_LIMIT = 3
-    BAD_VERSION = 4
-    NOT_IMPLEMENTED = 5
-    DEPTH_LIMIT = 6
-
-    getter :type
-
-    def initialize(@type=UNKNOWN, message=nil)
-      super(message)
-    end
-  end
-
-  class BaseProtocol
-    getter trans : BaseTransport
-
-    def initialize(@trans)
-    end
-
-    def native?
-      puts "wrong method is being called!"
-      false
-    end
-
-    def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
-      raise NotImplementedError.new ""
-    end
-
-    def write_message_end; nil; end
-
-    def write_struct_begin(name)
-      raise NotImplementedError.new ""
-    end
-
-    def write_struct_end; nil; end
-
-    def write_field_begin(name : String, type : MessageTypes, id : Int16)
-      raise NotImplementedError.new ""
-    end
-
-    def write_field_end; nil; end
-
-    def write_field_stop
-      raise NotImplementedError.new ""
-    end
-
-    def write_map_begin(ktype, vtype, size)
-      raise NotImplementedError.new ""
-    end
-
-    def write_map_end; nil; end
-
-    def write_list_begin(etype, size)
-      raise NotImplementedError.new ""
-    end
-
-    def write_list_end; nil; end
-
-    def write_set_begin(etype, size)
-      raise NotImplementedError.new ""
-    end
-
-    def write_set_end; nil; end
-
-    def write_bool(bool : Boolean)
-      raise NotImplementedError.new ""
-    end
-
-    def write_byte(byte : UInt8)
-      raise NotImplementedError.new ""
-    end
-
-    def write_i16(i16 : Int16)
-      raise NotImplementedError.new ""
-    end
-
-    def write_i32(i32 : Int32)
-      raise NotImplementedError.new ""
-    end
-
-    def write_i64(i64 : Int64)
-      raise NotImplementedError.new ""
-    end
-
-    def write_double(dub : Float64)
-      raise NotImplementedError.new ""
-    end
-
-    # Writes a Thrift String. In Ruby 1.9+, the String passed will be transcoded to UTF-8.
-    #
-    # str - The String to write.
-    #
-    # Raises EncodingError if the transcoding to UTF-8 fails.
-    #
-    # Returns nothing.
-    def write_string(str : String)
-      raise NotImplementedError.new ""
-    end
-
-    # Writes a Thrift Binary (Thrift String with no encoding). In Ruby 1.9+, the String passed
-    # will forced into BINARY encoding.
-    #
-    # buf - The String to write.
-    #
-    # Returns nothing.
-    def write_binary(buf : Bytes)
-      raise NotImplementedError.new ""
-    end
-
-    def read_message_begin : Tuple(String, UInt8, Int32)
-      raise NotImplementedError.new ""
-    end
-
-    def read_message_end; nil; end
-
-    def read_struct_begin
-      raise NotImplementedError.new ""
-    end
-
-    def read_struct_end; nil; end
-
-    def read_field_begin
-      raise NotImplementedError.new ""
-    end
-
-    def read_field_end; nil; end
-
-    def read_map_begin : Tuple(UInt8, UInt8, Int32)
-      raise NotImplementedError.new ""
-    end
-
-    def read_map_end; nil; end
-
-    def read_list_begin
-      raise NotImplementedError.new ""
-    end
-
-    def read_list_end; nil; end
-
-    def read_set_begin : Tuple(Uint8, Int32)
-      raise NotImplementedError.new ""
-    end
-
-    def read_set_end; nil; end
-
-    def read_bool
-      raise NotImplementedError.new ""
-    end
-
-    def read_byte : Bool
-      raise NotImplementedError.new ""
-    end
-
-    def read_i16 : Int16
-      raise NotImplementedError.new ""
-    end
-
-    def read_i32 : Int32
-      raise NotImplementedError.new ""
-    end
-
-    def read_i64 : Int64
-      raise NotImplementedError.new ""
-    end
-
-    def read_double : Float64
-      raise NotImplementedError.new ""
-    end
-
-    # Reads a Thrift String. In Ruby 1.9+, all Strings will be returned with an Encoding of UTF-8.
-    #
-    # Returns a String.
-    def read_string : String
-      raise NotImplementedError.new ""
-    end
-
-    # Reads a Thrift Binary (Thrift String without encoding). In Ruby 1.9+, all Strings will be returned
-    # with an Encoding of BINARY.
-    #
-    # Returns a String.
-    def read_binary : Bytes
-      raise NotImplementedError.new ""
-    end
-
-    def write_field(*args)
-      if args.size == 3
-        field_info, fid, value = args
-      elsif args.size == 4
-        field_info = {:name => args[0], :type => args[1]}
-        fid, value = args[2..3]
-      else
-        raise ArgumentError, "wrong number of arguments (#{args.size} for 3)"
-      end
-
-      write_field_begin(field_info[:name], field_info[:type], fid)
-      write_type(field_info, value)
-      write_field_end
-    end
-
-
-    def skip(type)
-      case type
-      when Types::BOOL
-        read_bool
-      when Types::BYTE
-        read_byte
-      when Types::I16
-        read_i16
-      when Types::I32
-        read_i32
-      when Types::I64
-        read_i64
-      when Types::DOUBLE
-        read_double
-      when Types::STRING
-        read_string
-      when Types::STRUCT
-        read_struct_begin
-        while true
-          name, type, id = read_field_begin
-          break if type == Types::STOP
-          skip(type)
-          read_field_end
-        end
-        read_struct_end
-      when Types::MAP
-        ktype, vtype, size = read_map_begin
-        size.times do
-          skip(ktype)
-          skip(vtype)
-        end
-        read_map_end
-      when Types::SET
-        etype, size = read_set_begin
-        size.times do
-          skip(etype)
-        end
-        read_set_end
-      when Types::LIST
-        etype, size = read_list_begin
-        size.times do
-          skip(etype)
-        end
-        read_list_end
-      else
-        raise ProtocolException.new(ProtocolException::INVALID_DATA, "Invalid data")
+      def initialize(@type = UNKNOWN, message = nil)
+        super(message)
       end
     end
 
-    def to_s
-      "#{trans.to_s}"
-    end
-  end
+    # BaseProtocol outlines how values are to be encoded
+    abstract class BaseProtocol
+      RECURSION_LIMIT = 64
+      @read_recursion = 0
+      @write_recursion = 0
 
-  class BaseProtocolFactory
-    def get_protocol(trans)
-      raise NotImplementedError.new ""
+      def read_recursion(&)
+        @read_recursion += 1
+        raise ProtocolException.new ProtocolException::DEPTH_LIMIT, "reached max read depth of #{ProtocolException::DEPTH_LIMIT}" if RECURSION_LIMIT < @read_recursion
+        yield self
+      ensure
+        @read_recursion -= 1
+      end
+
+      def write_recursion(&)
+        @write_recursion += 1
+        raise ProtocolException.new ProtocolException::DEPTH_LIMIT, "reached max write depth of #{ProtocolException::DEPTH_LIMIT}" if RECURSION_LIMIT < @write_recursion
+        yield self
+      ensure
+        @write_recursion -= 1
+      end
+
+      getter trans : Transport::BaseTransport
+
+      def initialize(@trans)
+      end
+
+      abstract def write_message_begin(name : String, type : Thrift::MessageTypes, seqid : Int32)
+
+      def write_message_end
+        nil
+      end
+
+      abstract def write_struct_begin(name)
+
+      def write_struct_end
+        nil
+      end
+
+      abstract def write_field_begin(name : String, type : Types, id : Int16)
+
+      def write_field_end
+        nil
+      end
+
+      abstract def write_field_stop
+
+      abstract def write_map_begin(ktype, vtype, size)
+
+      def write_map_end
+        nil
+      end
+
+      abstract def write_list_begin(etype, size)
+
+      def write_list_end
+        nil
+      end
+
+      abstract def write_set_begin(etype, size)
+
+      def write_set_end
+        nil
+      end
+
+      abstract def write_bool(bool : Bool)
+
+      abstract def write_byte(byte : Int8)
+
+      abstract def write_i16(i16 : Int16)
+
+      abstract def write_i32(i32 : Int32)
+
+      abstract def write_i64(i64 : Int64)
+
+      abstract def write_double(dub : Float64)
+
+      abstract def write_uuid(uuid : UUID)
+
+      # Writes a Thrift String. In Crystal 1.5.2 and onward, the String passed will be transcoded to UTF-8.
+      #
+      # str - The String to write.
+      #
+      # Raises EncodingError if the transcoding to UTF-8 fails.
+      #
+      # Returns nothing.
+      abstract def write_string(str : String)
+
+      # Writes a Thrift Binary (Thrift String with no encoding). In Crystal 1.5.2 and onward
+      #
+      # buf - The Bytes to write
+      #
+      # Returns nothing.
+      abstract def write_binary(buf : Bytes)
+
+      abstract def read_message_begin : Tuple(String, Thrift::MessageTypes, Int32)
+
+      def read_message_end
+        nil
+      end
+
+      abstract def read_struct_begin
+
+      def read_struct_end
+        nil
+      end
+
+      abstract def read_field_begin : Tuple(String, Thrift::Types, Int16)
+
+      def read_field_end
+        nil
+      end
+
+      abstract def read_map_begin : Tuple(Thrift::Types, Thrift::Types, Int32)
+
+      def read_map_end
+        nil
+      end
+
+      abstract def read_list_begin : Tuple(Thrift::Types, Int32)
+
+      def read_list_end
+        nil
+      end
+
+      abstract def read_set_begin : Tuple(Thrift::Types, Int32)
+
+      def read_set_end
+        nil
+      end
+
+      abstract def read_bool : Bool
+
+      abstract def read_byte : Int8
+
+      abstract def read_i16 : Int16
+
+      abstract def read_i32 : Int32
+
+      abstract def read_i64 : Int64
+
+      abstract def read_double : Float64
+
+      abstract def read_uuid : UUID
+
+      # Reads a Thrift String. In Crystal 1.5.2 and onward, all Strings will be returned with an Encoding of UTF-8.
+      #
+      # Returns a String.
+      abstract def read_string : String
+
+      # Reads a Thrift Binary (Thrift String without encoding). In  Crystal 1.5.2 and onward, all Strings will be returned
+      # with an Encoding of BINARY.
+      #
+      # Returns a String.
+      abstract def read_binary : Bytes
+
+      def skip(type)
+        case type
+        when Types::Bool
+          read_bool
+        when Types::Byte
+          read_byte
+        when Types::I16
+          read_i16
+        when Types::I32
+          read_i32
+        when Types::I64
+          read_i64
+        when Types::Double
+          read_double
+        when Types::String
+          read_string
+        when Types::Struct
+          read_struct_begin
+          loop do
+            name, type, id = read_field_begin
+            break if type == Types::Stop
+            skip(type)
+            read_field_end
+          end
+          read_struct_end
+        when Types::Map
+          ktype, vtype, size = read_map_begin
+          size.times do
+            skip(ktype)
+            skip(vtype)
+          end
+          read_map_end
+        when Types::Set
+          etype, size = read_set_begin
+          size.times do
+            skip(etype)
+          end
+          read_set_end
+        when Types::List
+          etype, size = read_list_begin
+          size.times do
+            skip(etype)
+          end
+          read_list_end
+        else
+          raise ProtocolException.new(ProtocolException::INVALID_DATA, "Invalid data")
+        end
+      end
+
+      def to_s
+        "#{trans.to_s}"
+      end
     end
 
-    def to_s
-      "base"
+    class BaseProtocolFactory
+      def get_protocol(trans) : ::Thrift::Protocol::BaseProtocol
+        raise NotImplementedError.new ""
+      end
+
+      def to_s
+        "base"
+      end
     end
   end
 end
 
 
+# this is where we inject thrifty-ness into crystal
+
+struct Nil
+  include ::Thrift::Type
+
+  define_thrift_type ::Thrift::Types::Void
+
+  # we only need a write to accomidate nilable types
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    nil
+  end
+end
+
+struct Bool
+  include ::Thrift::Type
+
+  define_thrift_type ::Thrift::Types::Bool
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_bool(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_bool
+  end
+end
+
+struct Int8 # AKA Byte
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::Byte
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_byte(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_byte
+  end
+end
+
+struct Int16
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::I16
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_i16(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_i16
+  end
+end
+
+struct Int32
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::I32
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_i32(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_i32
+  end
+end
+
+struct Int64
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::I64
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_i64(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_i64
+  end
+end
+
+struct Float64
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::Double
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_double(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_double
+  end
+end
+
+struct UUID
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::Uuid
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_uuid(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_uuid
+  end
+end
+
+class String
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::String
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_string(self)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    iprot.read_string
+  end
+end
+
+# Bytes is aliased as Slice(UInt8) so we throw on any slice that isn't bytes
+struct Slice(T)
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::String
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    {% if @type.type_vars.size < 2 && @type.type_vars[0] == UInt8 %}
+      oprot.write_binary(self)
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not UInt8"
+    {% end %}
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    {% if @type.type_vars.size < 2 && @type.type_vars[0] == UInt8 %}
+      iprot.read_binary
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not UInt8"
+    {% end %}
+  end
+end
+
+abstract struct Enum
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::I32
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    oprot.write_i32(self.to_i32)
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    self.from_value(iprot.read_i32)
+  end
+end
+
+# for container types we don't have write methods for non-thrift types
+
+class Array(T)
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::List
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
+      oprot.write_list_begin(T.thrift_type, self.size)
+      each do |element|
+        element.write to: oprot
+      end
+      oprot.write_list_end
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not a thrift type"
+    {% end %}
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
+      etype, size = iprot.read_list_begin
+      raise ::Thrift::Protocol::ProtocolException.new(::Thrift::Protocol::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{etype}, expected: #{T.thrift_type}") if T.thrift_type != etype
+      ret = Array(T).new(size) do |_|
+        T.read from: iprot
+      end
+      iprot.read_list_end
+      ret
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not a thrift type"
+    {% end %}
+  end
+end
+
+struct Set(T)
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::Set
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
+      oprot.write_set_begin(T.thrift_type, self.size)
+      each do |element|
+        element.write to: oprot
+      end
+      oprot.write_set_end
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not a thrift type"
+    {% end %}
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    ret = Set(T).new
+    {% if @type.type_vars[0].class.has_method?(:thrift_type) %}
+      etype, size = iprot.read_set_begin
+      raise ::Thrift::Protocol::ProtocolException.new(::Thrift::Protocol::ProtocolException::INVALID_DATA, "Recived Type doesn't match - recieved: #{etype}, expected: #{T.thrift_type}") if T.thrift_type != etype
+      size.times do |_|
+        ret << T.read from: iprot
+      end
+      iprot.read_set_end
+      ret
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not a thrift type"
+    {% end %}
+  end
+end
+
+class Hash(K, V)
+  include ::Thrift::Type
+  define_thrift_type ::Thrift::Types::Map
+
+  def write(to oprot : ::Thrift::Protocol::BaseProtocol)
+    {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
+          @type.type_vars[1].class.has_method?(:thrift_type) %}
+      oprot.write_map_begin(K.thrift_type, V.thrift_type, self.size)
+      each do |key, value|
+        key.write to: oprot
+        value.write to: oprot
+      end
+      oprot.write_map_end
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} OR/AND {{@type.type_vars[1].instance}} is not a thrift type"
+    {% end %}
+  end
+
+  def self.read(from iprot : ::Thrift::Protocol::BaseProtocol)
+    ret = Hash(K, V).new
+    {% if @type.type_vars[0].class.has_method?(:thrift_type) &&
+          @type.type_vars[1].class.has_method?(:thrift_type) %}
+      ktype, vtype, size = iprot.read_map_begin
+      if (ktype_enum = ktype) != K.thrift_type ||
+        (vtype_enum = vtype) != V.thrift_type
+        message = "Recieved type for Keys AND/OR Value do not match - expected key: #{K.thrift_type}, recieved key: #{ktype_enum} - expected value: #{V.thrift_type}, recieved value: #{vtype_enum}"
+        raise ::Thrift::Protocol::ProtocolException.new(::Thrift::Protocol::ProtocolException::INVALID_DATA, message)
+      end
+      size.times do |_|
+        ret[K.read from: iprot] = V.read from: iprot
+      end
+      iprot.read_map_end
+      ret
+    {% else %}
+      raise NotImplementedError.new "{{@type.type_vars[0].instance}} is not a thrift type"
+    {% end %}
+  end
+end
