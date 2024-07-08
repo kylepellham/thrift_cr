@@ -116,17 +116,24 @@ module Thrift
           oprot.write_struct_begin(self.class.name)
 
           {% if !opt_in_req_out_write.empty? %}
-            # throw if opt_in_req_out fields are unset (required fields would need to be set to even be here)
+            # if opt_in_req_out fields are unset (required fields would need to be set to even be here)
             unless (%empty_fields = { {{opt_in_req_out_write.map{|write| "#{write.name.stringify} => !#{write.name.id}.nil?".id}.splat }} }.select{|k,v| !v}).empty?
               Log.for(self.class).error {"Required Field(s) missing during write: #{%empty_fields.keys.join(", ")}"}
-              raise ::Thrift::Protocol::ProtocolException.new ::Thrift::Protocol::ProtocolException::INVALID_DATA, "Required Field(s) missing during write: #{%empty_fields.keys.join(", ")}"
             end
           {% end %}
 
-          {% for write in (requires_write + opt_in_req_out_write) %}
+          {% for write in requires_write %}
             oprot.write_field_begin({{write.annotation(::Thrift::Type::SerialOpts)[:transmit_name] || write.name.stringify}}, @{{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Type::SerialOpts)[:fid].id}}_i16)
             @{{write.name.id}}.write to: oprot
             oprot.write_field_end
+          {% end %}
+
+          {% for write in opt_in_req_out_write %}
+            @{{write.name.id}}.try do |{{write.name.id}}|
+              oprot.write_field_begin({{write.annotation(::Thrift::Type::SerialOpts)[:transmit_name] || write.name.stringify}}, {{write.name.id}}.thrift_type, {{write.annotation(::Thrift::Type::SerialOpts)[:fid].id}}_i16)
+              {{write.name.id}}.write to: oprot
+              oprot.write_field_end
+            end
           {% end %}
 
           {% for write in optional_write %}
@@ -146,14 +153,13 @@ module Thrift
 
     protected def read(from iprot : ::Thrift::Protocol::BaseProtocol)
       {% begin %}
-
       {% requires_check = @type.methods.select{|method| method.annotation(::Thrift::Type::SerialOpts) && method.annotation(::Thrift::Type::SerialOpts)[:requirement] == :required} %}
       iprot.read_recursion do
         {% if !requires_check.empty? %}
           %required_fields_set = {
             {{
               requires_check.map do |required|
-                "#{required.stringify} => false".id
+                "#{required.name.stringify} => false".id
               end.splat
             }}
           }
@@ -190,7 +196,7 @@ module Thrift
         iprot.read_struct_end
         {% if !requires_check.empty? %}
           %required_fields_set.select!{|k,v| !v}
-          raise ::Thrift::ProtocolException.new ::Thrift::ProtocolException::INVALID_DATA, "Required field(s) not set when reading: #{$required_fields_set.keys.join(", ")}" unless %required_fields_set.empty?
+          raise ::Thrift::Protocol::ProtocolException.new ::Thrift::Protocol::ProtocolException::INVALID_DATA, "Required field(s) not set when reading: #{%required_fields_set.keys.join(", ")}" unless %required_fields_set.empty?
         {% end %}
       end
       {% end %}
