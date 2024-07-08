@@ -670,7 +670,7 @@ module Thrift
       end
 
       def read_binary : Bytes
-        Base64.decode(reader.read_string)
+        Base64.decode(read_json_string)
       end
     end
 

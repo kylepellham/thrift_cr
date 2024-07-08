@@ -49,7 +49,7 @@ module Thrift
       "message: #{@message}, type: #{@type}"
     end
 
-    def read(from iprot : ::Thrift::BaseProtocol)
+    def read(from iprot : ::Thrift::Protocol::BaseProtocol)
       iprot.read_struct_begin
       loop do
         fname, ftype, fid = iprot.read_field_begin
@@ -86,33 +86,35 @@ module Thrift
     end
   end
 
-  # Mixin that adds crystal safe `message` for raising thrift exceptions
-  module Struct::ExceptionAdapter
+  module Struct
+    # Mixin that adds crystal safe `message` for raising thrift exceptions
+    module ExceptionAdapter
 
-    # xception_getter should be used in thrift exceptions because exceptions should be immutable
-    macro xception_getter(name)
-      def {{name.var.id}} : {{name.type}}
-        @{{name.var.id}}
+      # xception_getter should be used in thrift exceptions because exceptions should be immutable
+      macro xception_getter(name)
+        def {{name.var.id}} : {{name.type}}
+          @{{name.var.id}}
+        end
+
+        @{{name}}
       end
 
-      @{{name}}
-    end
-
-    def message
-      {% begin %}
-      first = true
-      %message = ""
-      {% for var in @type.methods.select(&.annotation(::Thrift::Struct::Property)) %}
-        if !@{{var.name.id}}.nil?
-          if first
-            first = false
-          else
-            %message += ", "
+      def message
+        {% begin %}
+        first = true
+        %message = ""
+        {% for var in @type.methods.select(&.annotation(::Thrift::Types::SerialOpts)) %}
+          if !@{{var.name.id}}.nil?
+            if first
+              first = false
+            else
+              %message += ", "
+            end
+            %message += "{{var.name.id}}: #{@{{var.name.id}}}"
           end
-          %message += "{{var.name.id}}: #{@{{var.name.id}}}"
-        end
-      {% end %}
-      {% end %}
+        {% end %}
+        {% end %}
+      end
     end
   end
 end
