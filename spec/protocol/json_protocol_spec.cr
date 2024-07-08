@@ -3,6 +3,7 @@ require "./spec_helper.cr"
 class ::Thrift::Protocol::JsonProtocol
   def reset_context
     @contexts.clear
+
     @context = JSONContext.new
     @reader = ::Thrift::LookaheadReader.new @trans
   end

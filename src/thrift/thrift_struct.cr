@@ -153,6 +153,7 @@ module Thrift
 
     protected def read(from iprot : ::Thrift::Protocol::BaseProtocol)
       {% begin %}
+
       {% requires_check = @type.methods.select{|method| method.annotation(::Thrift::Type::SerialOpts) && method.annotation(::Thrift::Type::SerialOpts)[:requirement] == :required} %}
       iprot.read_recursion do
         {% if !requires_check.empty? %}
